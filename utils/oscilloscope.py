@@ -1,11 +1,12 @@
 """
-Oscilloscope utilities for the plasma gun setup.
+Oscilloscope utilities for the plasma gun setup. The main testing script uses
+exactly the ps2000a streaming example.
 
 Inspired by the ps2000a streaming example at
 https://github.com/picotech/picosdk-python-wrappers
 
 
-Written By: Kimberly Chan
+Written/Modified By: Kimberly Chan
 (c) 2022 GREMI, University of Orleans
 (c) 2022 Mesbah Lab, University of California, Berkeley
 """
@@ -14,6 +15,7 @@ Written By: Kimberly Chan
 # order to open a device, setup 2 channels and collects streamed data (1 buffer)
 # This data is then plotted as mV against time in ns.
 
+from enum import Enum
 import ctypes
 import numpy as np
 from picosdk.ps2000a import ps2000a as ps
@@ -64,7 +66,7 @@ class Oscilloscope():
             # 2) as the name within the Enum defined above, e.g., CH_A, CH_B, etc
             # otherwise, throw an error
             if len(channel['name']) == 1:
-                ch_name = f'CH_{channel['name']}'
+                ch_name = f'CH_{channel["name"]}'
                 ch_args.append(Color[ch_name].value)
                 ch_name = channel['name']
             elif len(channel['name']) == 4:
@@ -105,7 +107,7 @@ class Oscilloscope():
 
         self.channels_info = channels
         # # TODO: add return status
-        return
+        return self.status
 
     def set_capture_size(self, single_buff_size=500, n_buffs=10):
 
@@ -135,7 +137,7 @@ class Oscilloscope():
             for buff in zip(buffers):
                 buff_args = []
                 if len(buff['name']) == 1:
-                    ch_name = f'CH_{buff['name']}'
+                    ch_name = f'CH_{buff["name"]}'
                     buff_args.append(Color[ch_name].value)
                     ch_name = buff['name']
                 elif len(channel['name']) == 4:
@@ -175,11 +177,26 @@ class Oscilloscope():
 
             self.buffers_info = buffers
             # # TODO: add return status
-            return
+            return self.status
 
     def initialize_oscilloscope(self, channels, buffers):
         self.status['all_channels_set'] = self.set_channels(channels)
         self.status['all_data_buffers_set'] = self.set_data_buffers(buffers)
+        return self.status
+
+
+    def stop_and_close_oscilloscope(self):
+        # handle = chandle
+        self.status["stop"] = ps.ps2000aStop(self.chandle)
+        assert_pico_ok(status["stop"])
+
+        # Disconnect the scope
+        # handle = chandle
+        self.status["close"] = ps.ps2000aCloseUnit(self.chandle)
+        assert_pico_ok(self.status["close"])
+
+        # Display status returns
+        print(self.status)
         return self.status
 
 if __name__ == "__main__":
