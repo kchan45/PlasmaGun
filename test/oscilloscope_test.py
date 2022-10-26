@@ -76,3 +76,13 @@ buffers = [bufferA, bufferB, bufferC, bufferD]
 
 ## ALTERNATIVE: Oscilloscope.initialize_oscilloscope(channels, buffers)
 status = osc.initialize_oscilloscope(channels, buffers)
+
+
+
+
+
+
+
+# stop and close the unit after finished
+status = osc.stop_and_close_oscilloscope()
+print(status)
