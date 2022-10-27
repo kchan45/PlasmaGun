@@ -45,9 +45,19 @@ class Oscilloscope():
         self.status = {}
         self.set_capture_size(single_buff_size=single_buff_size, n_buffs=n_buffs)
 
-    def open_osc(self):
+    def open_device(self):
         self.status['openunit'] = ps.ps2000aOpenUnit(ctypes.byref(self.chandle), None)
         return assert_pico_ok(self.status['openunit'])
+
+
+    def set_capture_size(self, single_buff_size=500, n_buffs=10):
+
+        total_buff_size = single_buff_size * n_buffs
+
+        self.single_buff_size = single_buff_size
+        self.n_buffs = n_buffs
+        self.total_buff_size = total_buff_size
+        return
 
     def set_channels(self, channels):
 
@@ -108,15 +118,6 @@ class Oscilloscope():
         self.channels_info = channels
         # # TODO: add return status
         return self.status
-
-    def set_capture_size(self, single_buff_size=500, n_buffs=10):
-
-        total_buff_size = single_buff_size * n_buffs
-
-        self.single_buff_size = single_buff_size
-        self.n_buffs = n_buffs
-        self.total_buff_size = total_buff_size
-        return
 
     def set_data_buffers(self, buffers):
 
@@ -179,13 +180,61 @@ class Oscilloscope():
             # # TODO: add return status
             return self.status
 
-    def initialize_oscilloscope(self, channels, buffers):
+    def initialize_streaming(self):
+        # Begin streaming mode:
+        sampleInterval = ctypes.c_int32(250)
+        sampleUnits = ps.PS2000A_TIME_UNITS['PS2000A_US']
+        # We are not triggering:
+        maxPreTriggerSamples = 0
+        autoStopOn = 1
+        # No downsampling:
+        downsampleRatio = 1
+        status["runStreaming"] = ps.ps2000aRunStreaming(chandle,
+                                                        ctypes.byref(sampleInterval),
+                                                        sampleUnits,
+                                                        maxPreTriggerSamples,
+                                                        totalSamples,
+                                                        autoStopOn,
+                                                        downsampleRatio,
+                                                        ps.PS2000A_RATIO_MODE['PS2000A_RATIO_MODE_NONE'],
+                                                        sizeOfOneBuffer)
+        assert_pico_ok(status["runStreaming"])
+
+        actualSampleInterval = sampleInterval.value
+        actualSampleIntervalNs = actualSampleInterval * 1000
+
+        print("Capturing at sample interval %s ns" % actualSampleIntervalNs)
+
+        # We need a big buffer, not registered with the driver, to keep our complete capture in.
+        bufferCompleteA = np.zeros(shape=totalSamples, dtype=np.int16)
+        bufferCompleteB = np.zeros(shape=totalSamples, dtype=np.int16)
+        self.nextSample = 0
+        self.autoStopOuter = False
+        self.wasCalledBack = False
+
+
+        def streaming_callback(handle, noOfSamples, startIndex, overflow, triggerAt, triggered, autoStop, param):
+            # global nextSample, autoStopOuter, wasCalledBack
+            self.wasCalledBack = True
+            destEnd = self.nextSample + noOfSamples
+            sourceEnd = startIndex + noOfSamples
+            bufferCompleteA[nextSample:destEnd] = bufferAMax[startIndex:sourceEnd]
+            bufferCompleteB[nextSample:destEnd] = bufferBMax[startIndex:sourceEnd]
+            self.nextSample += noOfSamples
+            if autoStop:
+                self.autoStopOuter = True
+
+
+        # Convert the python function into a C function pointer.
+        self.cFuncPtr = ps.StreamingReadyType(streaming_callback)
+
+    def initialize_device(self, channels, buffers):
         self.status['all_channels_set'] = self.set_channels(channels)
         self.status['all_data_buffers_set'] = self.set_data_buffers(buffers)
         return self.status
 
 
-    def stop_and_close_oscilloscope(self):
+    def stop_and_close_device(self):
         # handle = chandle
         self.status["stop"] = ps.ps2000aStop(self.chandle)
         assert_pico_ok(status["stop"])
