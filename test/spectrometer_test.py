@@ -31,7 +31,7 @@ loopTime = int(sys.argv[1])
 devices = list_devices()
 print(devices)
 spec = Spectrometer(devices[0])
-spec.integration_time_micros(12000*6)
+spec.integration_time_micros(200000)
 
 # Generate live plot
 plt.ion()

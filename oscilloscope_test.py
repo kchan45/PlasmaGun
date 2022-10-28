@@ -6,17 +6,29 @@ Written/Modified By: Kimberly Chan
 (c) 2022 Mesbah Lab, University of California, Berkeley
 """
 
+import sys
+import argparse
+import time
 from picosdk.ps2000a import ps2000a as ps
 import matplotlib.pyplot as plt
 
-from ..utils.oscilloscope import Oscilloscope
+from utils.oscilloscope import Oscilloscope
 
+print('\n--------------------------------')
+
+# Check that the number of arguments is correct
+numArg = 2
+if len(sys.argv)!=numArg:
+	print("Function expects "+str(numArg-1)+" argument(s). Example: 'oscilloscope_test.py 30' measures oscilloscope for 30 seconds")
+	raise
+
+loopTime = int(sys.argv[1])
 
 # Create an instance of the oscilloscope
 osc = Oscilloscope()
 
 # Open the oscilloscope
-status = osc.open_osc()
+status = osc.open_device()
 print(status)
 
 # set the channels to read from oscilloscope
@@ -36,17 +48,33 @@ print(status)
 #           ps2000a package; default ps.PS2000A_RANGE['PS2000_2V']
 #   "analog_offset": the offset for the analog reading; default: 0.0
 channelA = {"name": "A",
-            "enable_status": 1,
+            "enable_status": 0,
             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
-            "range": ps.PS2000A_RANGE['PS2000A_2V'],
+            "range": ps.PS2000A_RANGE['PS2000A_5V'],
             "analog_offset": 0.0,
             }
 
-channelB = {"name": "B"}
-channelC = {"name": "C"}
-channelD = {"name": "D"}
+channelB = {"name": "B",
+            "enable_status": 1,
+            "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
+            "range": ps.PS2000A_RANGE['PS2000A_20MV'],
+            "analog_offset": 0.0,
+            }
+channelC = {"name": "C",
+            "enable_status": 1,
+            "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
+            "range": ps.PS2000A_RANGE['PS2000A_20MV'],
+            "analog_offset": 0.0,
+            }
+channelD = {"name": "D",
+            "enable_status": 1,
+            "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
+            "range": ps.PS2000A_RANGE['PS2000A_5V'],
+            "analog_offset": 0.0,
+            }
 
-channels = [channelA, channelB, channelC, channelD]
+channels = [channelA, channelC]
+# channels = [channelA, channelB, channelC, channelD]
 # status = osc.set_channels(channels)
 # print(status)
 
@@ -70,19 +98,36 @@ bufferB = {"name": "B"}
 bufferC = {"name": "C"}
 bufferD = {"name": "D"}
 
-buffers = [bufferA, bufferB, bufferC, bufferD]
+buffers = [bufferA, bufferC]
+# buffers = [bufferA, bufferB, bufferC, bufferD]
 # status = osc.set_data_buffers(buffers)
 # print(status)
 
+# initialize streaming (to allow for continuous data collection)
+# self.intialize_streaming()
+
 ## ALTERNATIVE: Oscilloscope.initialize_oscilloscope(channels, buffers)
-status = osc.initialize_oscilloscope(channels, buffers)
+# initialize_oscilloscope sets the channels, buffers and initializes the streaming
+status = osc.initialize_device(channels, buffers)
 
+plt.ion()
+tStart = time.time()
 
+while(time.time()-tStart<=loopTime):
+    t, ch_datas = osc.collect_data()
+    t = osc.get_time_data()
+    for ch_data in ch_datas:
+        data = ch_data["data"]
+        plt.plot(t, data[:], label=ch_data["name"])
 
-
-
+    plt.xlabel('Time (ns)')
+    plt.ylabel('Voltage (mV)')
+    plt.legend()
+    plt.draw()
+    plt.pause(1)
+    plt.clf()
 
 
 # stop and close the unit after finished
-status = osc.stop_and_close_oscilloscope()
+status = osc.stop_and_close_device()
 print(status)
