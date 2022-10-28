@@ -50,7 +50,7 @@ class Oscilloscope():
         self.time_data = None
 
     def open_device(self):
-        self.status['openunit'] = ps.ps2000aOpenUnitAsync(ctypes.byref(self.chandle), None)
+        self.status['openunit'] = ps.ps2000aOpenUnit(ctypes.byref(self.chandle), None)
         return assert_pico_ok(self.status['openunit'])
 
     def set_capture_size(self, single_buff_size=500, n_buffs=10):
@@ -242,6 +242,7 @@ class Oscilloscope():
 
         # Convert the python function into a C function pointer.
         self.cFuncPtr = ps.StreamingReadyType(streaming_callback)
+        print("done initializing streaming")
 
         # Create time data
         self.time_data = np.linspace(0, (self.total_buff_size-1) * actualSampleIntervalNs, self.total_buff_size)
@@ -257,6 +258,9 @@ class Oscilloscope():
                 time.sleep(0.01)
 
         print("Done grabbing values.")
+        self.nextSample = 0
+        self.autoStopOuter = False
+        self.wasCalledBack = False
 
         # Find maximum ADC count value
         # handle = chandle
