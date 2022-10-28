@@ -48,7 +48,7 @@ print(status)
 #           ps2000a package; default ps.PS2000A_RANGE['PS2000_2V']
 #   "analog_offset": the offset for the analog reading; default: 0.0
 channelA = {"name": "A",
-            "enable_status": 0,
+            "enable_status": 1,
             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
             "range": ps.PS2000A_RANGE['PS2000A_5V'],
             "analog_offset": 0.0,
