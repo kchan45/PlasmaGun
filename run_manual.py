@@ -21,6 +21,7 @@ from picosdk.ps2000a import ps2000a as ps
 from utils.oscilloscope import Oscilloscope
 
 TEST = False
+DEFAULT_EMAIL = "kchan45@berkeley.edu"
 
 collect_spec = True
 collect_osc = False
@@ -178,6 +179,7 @@ if collect_spec:
     print(df)
     df.to_csv(f1)
     df.to_hdf(saveDir+"data.h5", key="spec", complevel=8)
+    f1.close()
 
 if collect_osc:
     osc_save = np.vstack(osc_list)
@@ -185,6 +187,53 @@ if collect_osc:
     print(df)
     df.to_csv(f2)
     df.to_hdf(saveDir+"data.h5", key="osc", complevel=8)
+    f2.close()
 
 if collect_osc:
     status = osc.stop_and_close_oscilloscope()
+
+
+print("Completed data collection!\n\n")
+
+send_data_to_email = input("Would you like to send the collected data to your email? [Y/n] : ")
+if send_data_to_email in ["Y", "y"]:
+    import email
+    import smtplib
+    import ssl
+
+    from email import encoders
+    from email.mime.base import MIMEBase
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.mime.application import MIMEApplication
+
+    subject = f"Data with timestamp: {timeStamp}"
+    body = f"Please see attached for the data acquired at the timestamp: {timeStamp}."
+    sender_email = "gremipg2022@gmail.com"
+    password = "yozpzhkdunctesnz"
+
+    receiver_email = str(input(f"Press Enter/Return to send to the default email address: {DEFAULT_EMAIL}\n OR\n Enter email to send data: \n") or DEFAULT_EMAIL))
+
+    # create the multipart message and set headers
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = receiver_email
+    message["Subject"] = subject
+    message["Bcc"] = receiver_email
+
+    # attach body to email
+    message.attach(MIMEText(body, "plain"))
+
+    if collect_spec:
+        csv_filename = saveDir+timeStamp+"_spectra_data.csv"
+        with open(csv_filename, 'rb') as file:
+            message.attach(MIMEApplication(file.read(), Name=timeStamp+"_spectra_data.csv"))
+    if collect_osc:
+        csv_filename = saveDir+timeStamp+"_osc_data.csv"
+        with open(csv_filename, 'rb') as file:
+            message.attach(MIMEApplication(file.read(), Name=timeStamp+"_osc_data.csv"))
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver_email, message.as_string())

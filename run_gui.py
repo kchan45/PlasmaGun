@@ -1,4 +1,4 @@
-# script to run a manual data collection
+# script to run gui 
 
 
 import sys
