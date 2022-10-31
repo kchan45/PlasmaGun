@@ -1,0 +1,4 @@
+# Data Timestamp: 2022_10_31_17h52m07s
+# Input Parameters: Voltage=5.0V; Frequency=200.0Hz; Carrier gas flow rate=1.0.
+# unknown
+

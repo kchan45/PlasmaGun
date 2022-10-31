@@ -26,12 +26,12 @@ DEFAULT_EMAIL = "kchan45@berkeley.edu"
 collect_spec = True
 collect_osc = False
 samplingTime = 1.0 # sampling time in seconds
-n_iterations = 20 # number of sampling iterations
+n_iterations = 10 # number of sampling iterations
 set_v = 5.0 # voltage in Volts
-set_freq = 0.2 # frequency in kilohertz
+set_freq = 200.0 # frequency in hertz
 set_flow = 1.0 # flow rate in liters per minute
-# addl_notes = "chicken muscle at 5mm distance, 3rd location, original orientation"
-addl_notes = "background"
+addl_notes = "chicken muscle at 5mm distance; location 4; more lights off"
+# addl_notes = "background"
 
 ## collect time stamp for data collection
 timeStamp = datetime.now().strftime('%Y_%m_%d_%H'+'h%M''m%S'+'s')
@@ -47,19 +47,19 @@ print(saveDir)
 
 f = open(saveDir+"notes.txt", 'a')
 f.write(f"# Data Timestamp: {timeStamp}\n")
-f.write(f"# Input Parameters: Voltage={set_v}V; Frequency={set_freq}kHz; Carrier gas flow rate={set_flow}.\n")
+f.write(f"# Input Parameters: Voltage={set_v}V; Frequency={set_freq}Hz; Carrier gas flow rate={set_flow}.\n")
 f.write(f"# {addl_notes}\n")
 
 if collect_spec:
     f1 = open(saveDir+timeStamp+"_spectra_data.csv", 'a')
     f1.write(f"# Data Timestamp: {timeStamp}\n")
-    f1.write(f"# Input Parameters: Voltage={set_v}V; Frequency={set_freq}kHz; Carrier gas flow rate={set_flow}.\n")
+    f1.write(f"# Input Parameters: Voltage={set_v}V; Frequency={set_freq}Hz; Carrier gas flow rate={set_flow}.\n")
     f1.write(f"# {addl_notes}\n")
 
 if collect_osc:
     f2 = open(saveDir+timeStamp+"_osc_data.csv", 'a')
     f2.write(f"# Data Timestamp: {timeStamp}\n")
-    f2.write(f"# Input Parameters: Voltage={set_v}V; Frequency={set_freq}kHz; Carrier gas flow rate={set_flow}.\n")
+    f2.write(f"# Input Parameters: Voltage={set_v}V; Frequency={set_freq}Hz; Carrier gas flow rate={set_flow}.\n")
     f2.write(f"# {addl_notes}\n")
 
 ################################################################################
@@ -212,7 +212,7 @@ if send_data_to_email in ["Y", "y"]:
     sender_email = "gremipg2022@gmail.com"
     password = "yozpzhkdunctesnz"
 
-    receiver_email = str(input(f"Press Enter/Return to send to the default email address: {DEFAULT_EMAIL}\n OR\n Enter email to send data: \n") or DEFAULT_EMAIL))
+    receiver_email = str(input(f"Press Enter/Return to send to the default email address: {DEFAULT_EMAIL}\n OR\nInput an email to send data: \n") or DEFAULT_EMAIL)
 
     # create the multipart message and set headers
     message = MIMEMultipart()

@@ -1,0 +1,3 @@
+# Data Timestamp: 2022_10_31_17h36m14s
+# Input Parameters: Voltage=5.0V; Frequency=200.0Hz; Carrier gas flow rate=1.0.
+# chicken muscle at 5mm distance; location 3 (flipped over); more lights off; 2nd data collection at same spot with fiber optic cable adjusted

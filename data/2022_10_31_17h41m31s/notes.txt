@@ -1,0 +1,3 @@
+# Data Timestamp: 2022_10_31_17h41m31s
+# Input Parameters: Voltage=5.0V; Frequency=200.0Hz; Carrier gas flow rate=1.0.
+# chicken skin at 5mm distance; location 2 (flipped over); more lights off; over bone
