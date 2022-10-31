@@ -126,7 +126,7 @@ for i in range(30):
 
     if i%10 == 0:
         df = pd.DataFrame(d_list)
-        #df.to_hdf(saveDir+"data.h5", complevel=8)
+        df.to_hdf(saveDir+"data.h5", key="data", complevel=8)
 
     endTime = time.time()
     runTime = endTime-startTime
@@ -142,7 +142,7 @@ df = pd.DataFrame(d_list)
 print(df)
 
 df.to_csv(f)
-#df.to_hdf(saveDir+"data.h5", complevel=8)
+df.to_hdf(saveDir+"data.h5", key="data", complevel=8)
 
 
 
