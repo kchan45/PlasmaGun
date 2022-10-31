@@ -22,7 +22,11 @@ from utils.oscilloscope import Oscilloscope
 
 collect_spec = True
 collect_osc = False
-samplingTime = 1.0
+samplingTime = 1.0 # sampling time in seconds
+set_v = 5.0 # voltage in Volts
+set_freq = 0.2 # frequency in kilohertz
+set_flow = 1.0 # flow rate in liters per minute
+addl_notes = "chicken muscle at 5mm distance, 3rd location, original orientation"
 
 ## collect time stamp for data collection
 timeStamp = datetime.now().strftime('%Y_%m_%d_%H'+'h%M''m%S'+'s')
@@ -35,6 +39,11 @@ if not os.path.exists(saveDir):
 	os.makedirs(saveDir, exist_ok=True)
 print('\nData will be saved in the following directory:')
 print(saveDir)
+
+f = open(saveDir+"data.csv", 'a')
+f.write(f"# Data Timestamp: {timeStamp}\n")
+f.write(f"# Input Parameters: Voltage={set_v}V, Frequency={set_freq}kHz, Carrier gas flow rate={set_flow}.\n")
+f.write(f"# {addl_notes}\n")
 
 ################################################################################
 # CONNECT TO DEVICES
@@ -93,21 +102,15 @@ if collect_osc:
 # PERFORM DATA COLLECTION
 ################################################################################
 # set up containers for data
-samp_time = np.arange(100)
 spec_keys = []
 osc_keys = []
 if collect_spec:
     spec_keys = ["wavelengths", "intensities"]
 if collect_osc:
     osc_keys = ["timebase", *[f"{channel['name']}" for channel in channels]]
-data_names = np.array([*spec_keys, *osc_keys])
-samp_time = np.repeat(samp_time, len(data_names))
-print(data_names)
-data_names = np.tile(data_names,100)
-arrays = [samp_time,data_names]
 
 d_list = []
-for i in range(100):
+for i in range(30):
     startTime = time.time()
     d = {}
     if collect_spec:
@@ -123,23 +126,23 @@ for i in range(100):
 
     if i%10 == 0:
         df = pd.DataFrame(d_list)
-        df.to_hdf(saveDir+"data.h5", complevel=8)
+        #df.to_hdf(saveDir+"data.h5", complevel=8)
 
     endTime = time.time()
     runTime = endTime-startTime
-    print(f'Total Runtime of Iteration {i} was {runTime}.')
+    print(f'Total Runtime of Iteration {i} was {runTime:.2f} sec.')
     if runTime < samplingTime:
         pauseTime = samplingTime - runTime
         time.sleep(pauseTime)
-        print(f'Pausing for {pauseTime}.')
+        print(f'Pausing for {pauseTime:.2f} sec.')
     elif runTime > samplingTime:
         print('WARNING: Measurement time was greater than sampling time! Data may be inaccurate.')
 
 df = pd.DataFrame(d_list)
 print(df)
 
-df.to_csv(saveDir+"data.csv")
-df.to_hdf(saveDir+"data.h5", complevel=8)
+df.to_csv(f)
+#df.to_hdf(saveDir+"data.h5", complevel=8)
 
 
 
