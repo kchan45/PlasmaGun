@@ -22,6 +22,7 @@ from utils.oscilloscope import Oscilloscope
 
 collect_spec = True
 collect_osc = False
+samplingTime = 1.0
 
 ## collect time stamp for data collection
 timeStamp = datetime.now().strftime('%Y_%m_%d_%H'+'h%M''m%S'+'s')
@@ -76,7 +77,7 @@ if collect_osc:
                 "analog_offset": 0.0,
                 }
 
-    channels = [channelA, channelC]
+    channels = [channelA, channelB, channelC]
     # see /test/oscilloscope_test.py for more information on defining the buffers
     bufferA = {"name": "A",
                "segment_index": 0,
@@ -115,9 +116,9 @@ for i in range(100):
     if collect_osc:
         # t, osc_data = osc.collect_data()
 
-        # d["timebase"] = np.random.randn(240)
-        # for ch in channels:
-        #     d[f'{ch["name"]}'] = np.random.randn(240)
+        d["timebase"] = np.random.randn(240)
+        for ch in channels:
+            d[f'{ch["name"]}'] = np.random.randn(240)
     d_list.append(d)
 
     if i%10 == 0:
@@ -145,5 +146,5 @@ df.to_hdf(saveDir+"data.h5", complevel=8)
 
 
 
-
-# status = osc.stop_and_close_oscilloscope()
+if collect_osc:
+    status = osc.stop_and_close_oscilloscope()
