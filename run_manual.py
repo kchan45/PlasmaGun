@@ -46,54 +46,60 @@ if collect_spec:
 	spec.integration_time_micros(200000)
 
 # Oscilloscope
-# if collect_osc:
-# osc = Oscilloscope()
-# # status = osc.open_osc()
-# # see /test/oscilloscope_test.py for more information on defining the channels
-# channelA = {"name": "A",
-#             "enable_status": 0,
-#             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
-#             "range": ps.PS2000A_RANGE['PS2000A_5V'],
-#             "analog_offset": 0.0,
-#             }
-#
-# channelB = {"name": "B",
-#             "enable_status": 1,
-#             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
-#             "range": ps.PS2000A_RANGE['PS2000A_20MV'],
-#             "analog_offset": 0.0,
-#             }
-# channelC = {"name": "C",
-#             "enable_status": 1,
-#             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
-#             "range": ps.PS2000A_RANGE['PS2000A_20MV'],
-#             "analog_offset": 0.0,
-#             }
-# channelD = {"name": "D",
-#             "enable_status": 1,
-#             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
-#             "range": ps.PS2000A_RANGE['PS2000A_5V'],
-#             "analog_offset": 0.0,
-#             }
-#
-# channels = [channelA, channelC]
-# # see /test/oscilloscope_test.py for more information on defining the buffers
-# bufferA = {"name": "A",
-#            "segment_index": 0,
-#            "ratio_mode": ps.PS2000A_RATIO_MODE['PS2000A_RATIO_MODE_NONE'],
-#            }
-# bufferB = {"name": "B"}
-# bufferC = {"name": "C"}
-# bufferD = {"name": "D"}
-# buffers = [bufferA, bufferB, bufferC, bufferD]
-# # status = osc.initialize_oscilloscope(channels, buffers)
+if collect_osc:
+    osc = Oscilloscope()
+    status = osc.open_device()
+    # see /test/oscilloscope_test.py for more information on defining the channels
+    channelA = {"name": "A",
+                "enable_status": 0,
+                "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
+                "range": ps.PS2000A_RANGE['PS2000A_5V'],
+                "analog_offset": 0.0,
+                }
+
+    channelB = {"name": "B",
+                "enable_status": 1,
+                "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
+                "range": ps.PS2000A_RANGE['PS2000A_20MV'],
+                "analog_offset": 0.0,
+                }
+    channelC = {"name": "C",
+                "enable_status": 1,
+                "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
+                "range": ps.PS2000A_RANGE['PS2000A_20MV'],
+                "analog_offset": 0.0,
+                }
+    channelD = {"name": "D",
+                "enable_status": 1,
+                "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
+                "range": ps.PS2000A_RANGE['PS2000A_5V'],
+                "analog_offset": 0.0,
+                }
+
+    channels = [channelA, channelC]
+    # see /test/oscilloscope_test.py for more information on defining the buffers
+    bufferA = {"name": "A",
+               "segment_index": 0,
+               "ratio_mode": ps.PS2000A_RATIO_MODE['PS2000A_RATIO_MODE_NONE'],
+               }
+    bufferB = {"name": "B"}
+    bufferC = {"name": "C"}
+    bufferD = {"name": "D"}
+    buffers = [bufferA, bufferB, bufferC, bufferD]
+    status = osc.initialize_device(channels, buffers)
 
 ################################################################################
 # PERFORM DATA COLLECTION
 ################################################################################
 # set up containers for data
 samp_time = np.arange(100)
-data_names = np.array([*["wavelengths", "intensities"]])#, "timebase"], *[f"{channel['name']}" for channel in channels]])
+spec_keys = []
+osc_keys = []
+if collect_spec:
+    spec_keys = ["wavelengths", "intensities"]
+if collect_osc:
+    osc_keys = ["timebase", *[f"{channel['name']}" for channel in channels]]
+data_names = np.array([*spec_keys, *osc_keys])
 samp_time = np.repeat(samp_time, len(data_names))
 print(data_names)
 data_names = np.tile(data_names,100)
@@ -101,30 +107,38 @@ arrays = [samp_time,data_names]
 
 d_list = []
 for i in range(100):
+    startTime = time.time()
     d = {}
-    d["intensities"] = spec.intensities()
-    d["wavelengths"] = spec.wavelengths()
-    # d["timebase"] = np.random.randn(240)
-    # for ch in channels:
-    #     d[f'{ch["name"]}'] = np.random.randn(240)
+    if collect_spec:
+        d["wavelengths"] = spec.wavelengths()
+        d["intensities"] = spec.intensities()
+    if collect_osc:
+        # t, osc_data = osc.collect_data()
+
+        # d["timebase"] = np.random.randn(240)
+        # for ch in channels:
+        #     d[f'{ch["name"]}'] = np.random.randn(240)
     d_list.append(d)
-    # osc_list = [l.append(np.random.randn(240)) for l in osc_list]
-    # osc_list.append([np.random.randn(240) for _ in channels])
 
-    # intensity = spec.intensities()
-    # wavelength = spec.wavelengths()
+    if i%10 == 0:
+        df = pd.DataFrame(d_list)
+        df.to_hdf(saveDir+"data.h5", complevel=8)
 
-    # t, osc_data = osc.collect_data()
-
-    # if i%10 == 0:
-    #     current_df = pd.DataFrame([])
-    #     global_df = pd.DataFrame
-
+    endTime = time.time()
+    runTime = endTime-startTime
+    print(f'Total Runtime of Iteration {i} was {runTime}.')
+    if runTime < samplingTime:
+        pauseTime = samplingTime - runTime
+        time.sleep(pauseTime)
+        print(f'Pausing for {pauseTime}.')
+    elif runTime > samplingTime:
+        print('WARNING: Measurement time was greater than sampling time! Data may be inaccurate.')
 
 df = pd.DataFrame(d_list)
 print(df)
 
-df.to_csv(saveDir+"data_csv")
+df.to_csv(saveDir+"data.csv")
+df.to_hdf(saveDir+"data.h5", complevel=8)
 
 
 
