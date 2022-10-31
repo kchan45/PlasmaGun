@@ -20,13 +20,17 @@ from picosdk.ps2000a import ps2000a as ps
 ## import user functions
 from utils.oscilloscope import Oscilloscope
 
+TEST = False
+
 collect_spec = True
 collect_osc = False
 samplingTime = 1.0 # sampling time in seconds
+n_iterations = 20 # number of sampling iterations
 set_v = 5.0 # voltage in Volts
 set_freq = 0.2 # frequency in kilohertz
 set_flow = 1.0 # flow rate in liters per minute
-addl_notes = "chicken muscle at 5mm distance, 3rd location, original orientation"
+# addl_notes = "chicken muscle at 5mm distance, 3rd location, original orientation"
+addl_notes = "background"
 
 ## collect time stamp for data collection
 timeStamp = datetime.now().strftime('%Y_%m_%d_%H'+'h%M''m%S'+'s')
@@ -40,20 +44,35 @@ if not os.path.exists(saveDir):
 print('\nData will be saved in the following directory:')
 print(saveDir)
 
-f = open(saveDir+"data.csv", 'a')
+f = open(saveDir+"notes.txt", 'a')
 f.write(f"# Data Timestamp: {timeStamp}\n")
-f.write(f"# Input Parameters: Voltage={set_v}V, Frequency={set_freq}kHz, Carrier gas flow rate={set_flow}.\n")
+f.write(f"# Input Parameters: Voltage={set_v}V; Frequency={set_freq}kHz; Carrier gas flow rate={set_flow}.\n")
 f.write(f"# {addl_notes}\n")
+
+if collect_spec:
+    f1 = open(saveDir+timeStamp+"_spectra_data.csv", 'a')
+    f1.write(f"# Data Timestamp: {timeStamp}\n")
+    f1.write(f"# Input Parameters: Voltage={set_v}V; Frequency={set_freq}kHz; Carrier gas flow rate={set_flow}.\n")
+    f1.write(f"# {addl_notes}\n")
+
+if collect_osc:
+    f2 = open(saveDir+timeStamp+"_osc_data.csv", 'a')
+    f2.write(f"# Data Timestamp: {timeStamp}\n")
+    f2.write(f"# Input Parameters: Voltage={set_v}V; Frequency={set_freq}kHz; Carrier gas flow rate={set_flow}.\n")
+    f2.write(f"# {addl_notes}\n")
 
 ################################################################################
 # CONNECT TO DEVICES
 ################################################################################
 # Spectrometer
 if collect_spec:
-	devices = list_devices()
-	print(devices)
-	spec = Spectrometer(devices[0])
-	spec.integration_time_micros(200000)
+    if TEST:
+        pass
+    else:
+        devices = list_devices()
+        print(devices)
+        spec = Spectrometer(devices[0])
+        spec.integration_time_micros(200000)
 
 # Oscilloscope
 if collect_osc:
@@ -104,29 +123,42 @@ if collect_osc:
 # set up containers for data
 spec_keys = []
 osc_keys = []
+spec_list = []
+osc_list = []
 if collect_spec:
     spec_keys = ["wavelengths", "intensities"]
 if collect_osc:
     osc_keys = ["timebase", *[f"{channel['name']}" for channel in channels]]
 
-d_list = []
-for i in range(30):
-    startTime = time.time()
-    d = {}
-    if collect_spec:
-        d["wavelengths"] = spec.wavelengths()
-        d["intensities"] = spec.intensities()
-    if collect_osc:
-        # t, osc_data = osc.collect_data()
 
-        d["timebase"] = np.random.randn(240)
-        for ch in channels:
-            d[f'{ch["name"]}'] = np.random.randn(240)
-    d_list.append(d)
+for i in range(int(n_iterations)):
+    startTime = time.time()
+    if collect_spec:
+        if TEST:
+            spec_list.append(np.random.randn(300))
+            spec_list.append(np.random.randn(300))
+        else:
+            spec_list.append(spec.wavelengths())
+            spec_list.append(spec.intensities())
+    if collect_osc:
+        if TEST:
+            osc_list.append(np.random.randn(240))
+            for ch in channels:
+                osc_list.append(np.random.randn(240))
+        else:
+            t, osc_data = osc.collect_data()
+
 
     if i%10 == 0:
-        df = pd.DataFrame(d_list)
-        df.to_hdf(saveDir+"data.h5", key="data", complevel=8)
+        if collect_spec:
+            spec_save = np.vstack(spec_list)
+            df = pd.DataFrame(spec_save)
+            df.to_hdf(saveDir+"data.h5", key="spec", complevel=8)
+
+        if collect_osc:
+            osc_save = np.vstack(osc_list)
+            df = pd.DataFrame(osc_save)
+            df.to_hdf(saveDir+"data.h5", key="osc", complevel=8)
 
     endTime = time.time()
     runTime = endTime-startTime
@@ -138,16 +170,21 @@ for i in range(30):
     elif runTime > samplingTime:
         print('WARNING: Measurement time was greater than sampling time! Data may be inaccurate.')
 
-df = pd.DataFrame(d_list)
-print(df)
 
-df.to_csv(f)
-df.to_hdf(saveDir+"data.h5", key="data", complevel=8)
+if collect_spec:
+    spec_save = np.vstack(spec_list)
+    print(spec_save)
+    df = pd.DataFrame(spec_save)
+    print(df)
+    df.to_csv(f1)
+    df.to_hdf(saveDir+"data.h5", key="spec", complevel=8)
 
-
-
-
-
+if collect_osc:
+    osc_save = np.vstack(osc_list)
+    df = pd.DataFrame(osc_save)
+    print(df)
+    df.to_csv(f2)
+    df.to_hdf(saveDir+"data.h5", key="osc", complevel=8)
 
 if collect_osc:
     status = osc.stop_and_close_oscilloscope()
