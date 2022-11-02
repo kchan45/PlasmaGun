@@ -82,7 +82,7 @@ if collect_osc:
     status = osc.open_device()
     # see oscilloscope_test.py for more information on defining the channels
     channelA = {"name": "A",
-                "enable_status": 0,
+                "enable_status": 1,
                 "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
                 "range": ps.PS2000A_RANGE['PS2000A_5V'],
                 "analog_offset": 0.0,
@@ -107,7 +107,7 @@ if collect_osc:
                 "analog_offset": 0.0,
                 }
 
-    channels = [channelA]#, channelB, channelC]
+    channels = [channelA, channelB, channelC]
     # see oscilloscope_test.py for more information on defining the buffers
     bufferA = {"name": "A",
                "segment_index": 0,
@@ -116,7 +116,7 @@ if collect_osc:
     bufferB = {"name": "B"}
     bufferC = {"name": "C"}
     bufferD = {"name": "D"}
-    buffers = [bufferA]#, bufferB, bufferC]
+    buffers = [bufferA, bufferB, bufferC]
     # see /test/oscilloscope_test.py for more information on defining the trigger (TODO)
     trigger = {"enable_status": 1,
                "source": ps.PS2000A_CHANNEL['PS2000A_CHANNEL_A'],
@@ -124,7 +124,7 @@ if collect_osc:
                "direction": ps.PS2000A_THRESHOLD_DIRECTION['PS2000A_RISING'],
                "delay": 0,
                "auto_trigger": 1000}
-    status = osc.initialize_device(channels, buffers)
+    status = osc.initialize_device(channels, buffers, trigger=trigger)
 
 ################################################################################
 # PERFORM DATA COLLECTION
@@ -148,10 +148,15 @@ for i in range(int(n_iterations)):
             for ch in channels:
                 osc_list.append(np.random.randn(240))
         else:
+            s1 = time.time()
             t, osc_data = osc.collect_data_block()
+            print("time to collect data:", time.time() - s1)
+            s2 = time.time()
             osc_list.append(t)
-            for ch in channels:
-                osc_list.append(osc_data[ch["name"]])
+            for ch,ch_data in zip(channels,osc_data):
+                assert ch["name"] == ch_data["name"]
+                osc_list.append(ch_data["data"])
+            print("time to save data:", time.time() - s2)
     if collect_spec:
         if TEST:
             spec_list.append(np.random.randn(300))
@@ -201,10 +206,10 @@ if collect_osc:
     f2.close()
 
 if collect_osc:
-    status = osc.stop_and_close_oscilloscope()
+    status = osc.stop_and_close_device()
 
 
-print("Completed data collection!\n\n")
+print("\n\nCompleted data collection!\n")
 
 send_data_to_email = input("Would you like to send the collected data to your email? [Y/n] : ")
 if send_data_to_email in ["Y", "y"]:
