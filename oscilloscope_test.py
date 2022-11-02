@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from utils.oscilloscope import Oscilloscope
 
 print('\n--------------------------------')
+TEST_STREAMING = False
 
 # Check that the number of arguments is correct
 numArg = 2
@@ -25,7 +26,10 @@ if len(sys.argv)!=numArg:
 loopTime = int(sys.argv[1])
 
 # Create an instance of the oscilloscope
-osc = Oscilloscope()
+if TEST_STREAMING:
+    osc = Oscilloscope(mode='streaming')
+else:
+    osc = Oscilloscope(mode='block')
 
 # Open the oscilloscope
 status = osc.open_device()
@@ -50,7 +54,7 @@ print(status)
 channelA = {"name": "A",
             "enable_status": 1,
             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
-            "range": ps.PS2000A_RANGE['PS2000A_5V'],
+            "range": ps.PS2000A_RANGE['PS2000A_10V'],
             "analog_offset": 0.0,
             }
 
@@ -73,7 +77,7 @@ channelD = {"name": "D",
             "analog_offset": 0.0,
             }
 
-channels = [channelA, channelC]
+channels = [channelA]#, channelC]
 # channels = [channelA, channelB, channelC, channelD]
 # status = osc.set_channels(channels)
 # print(status)
@@ -98,7 +102,7 @@ bufferB = {"name": "B"}
 bufferC = {"name": "C"}
 bufferD = {"name": "D"}
 
-buffers = [bufferA, bufferC]
+buffers = [bufferA]#, bufferC]
 # buffers = [bufferA, bufferB, bufferC, bufferD]
 # status = osc.set_data_buffers(buffers)
 # print(status)
@@ -114,7 +118,12 @@ plt.ion()
 tStart = time.time()
 
 while(time.time()-tStart<=loopTime):
-    t, ch_datas = osc.collect_data()
+    s = time.time()
+    if TEST_STREAMING:
+        t, ch_datas = osc.collect_data_streaming()
+    else:
+        t, ch_datas = osc.collect_data_block()
+    print(f"time to collect data: {time.time()-s}")
     t = osc.get_time_data()
     for ch_data in ch_datas:
         data = ch_data["data"]
@@ -130,4 +139,3 @@ while(time.time()-tStart<=loopTime):
 
 # stop and close the unit after finished
 status = osc.stop_and_close_device()
-print(status)

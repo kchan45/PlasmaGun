@@ -34,7 +34,7 @@ class Oscilloscope():
     The class Oscilloscope defines a custom object that is used to connect to a
     2000a series oscilloscope from PicoTech for the plasma gun setup.
     """
-    def __init__(self, single_buff_size=1000, n_buffs=10):
+    def __init__(self, mode='streaming', single_buff_size=100, n_buffs=1, pretrigger_size=2000, posttrigger_size=8000):
         # self.super().__init__()
 
         # initialize the oscilloscope object by:
@@ -43,7 +43,8 @@ class Oscilloscope():
         # 3) setting up the capture size of the channels
         self.chandle = ctypes.c_int16()
         self.status = {}
-        self.set_capture_size(single_buff_size=single_buff_size, n_buffs=n_buffs)
+        self.mode = mode
+        self.set_capture_size(mode, single_buff_size, n_buffs, pretrigger_size, posttrigger_size)
         self.channels_info = None
         self.buffers_info = None
         self.channel_datas = None
@@ -53,12 +54,17 @@ class Oscilloscope():
         self.status['openunit'] = ps.ps2000aOpenUnit(ctypes.byref(self.chandle), None)
         return assert_pico_ok(self.status['openunit'])
 
-    def set_capture_size(self, single_buff_size=500, n_buffs=10):
+    def set_capture_size(self, mode, single_buff_size, n_buffs, pretrigger_size, posttrigger_size):
 
-        total_buff_size = single_buff_size * n_buffs
+        if mode == 'streaming':
+            total_buff_size = single_buff_size * n_buffs
+            self.single_buff_size = single_buff_size
+            self.n_buffs = n_buffs
+        elif mode == 'block':
+            total_buff_size = pretrigger_size + posttrigger_size
+            self.pretrigger_size = pretrigger_size
+            self.posttrigger_size = posttrigger_size
 
-        self.single_buff_size = single_buff_size
-        self.n_buffs = n_buffs
         self.total_buff_size = total_buff_size
         return
 
@@ -144,6 +150,7 @@ class Oscilloscope():
             default_segment_idx = 0
             default_ratio_mode = ps.PS2000A_RATIO_MODE['PS2000A_RATIO_MODE_NONE']
             self.buffer_maxes = []
+            self.buffer_mins = []
             for buff in buffers:
                 buff_args = []
                 if len(buff['name']) == 1:
@@ -158,15 +165,32 @@ class Oscilloscope():
                     raise
 
                 # pointer to buffer max
-                bufferMax = np.zeros(shape=self.single_buff_size, dtype=np.int16)
+                if self.mode == 'streaming':
+                    bufferMax = np.zeros(shape=self.single_buff_size, dtype=np.int16)
+                    buff_args.append(bufferMax.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)))
+                elif self.mode == 'block':
+                    # bufferMax = np.zeros(shape=self.total_buff_size, dtype=np.int16)
+                    bufferMax = (ctypes.c_int16 * self.total_buff_size)()
+                    buff_args.append(ctypes.byref(bufferMax))
                 self.buffer_maxes.append(bufferMax)
-                buff_args.append(bufferMax.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)))
+
 
                 # pointer to buffer min
-                buff_args.append(None)
+                if self.mode == 'streaming':
+                    bufferMin = np.zeros(shape=self.single_buff_size, dtype=np.int16)
+                    buff_args.append(bufferMin.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)))
+                elif self.mode == 'block':
+                    # bufferMin = np.zeros(shape=self.total_buff_size, dtype=np.int16)
+                    bufferMin = (ctypes.c_int16 * self.total_buff_size)()
+                    buff_args.append(ctypes.byref(bufferMin))
+                self.buffer_mins.append(bufferMin)
+
 
                 # buffer length
-                buff_args.append(self.single_buff_size)
+                if self.mode == 'streaming':
+                    buff_args.append(self.single_buff_size)
+                elif self.mode == 'block':
+                    buff_args.append(self.total_buff_size)
 
                 # add the segment index, if not provided, use the default (defaults defined above in code)
                 if 'seg_idx' in buff:
@@ -192,8 +216,71 @@ class Oscilloscope():
             # # TODO: add return status
             return self.status
 
-    def set_trigger(self):
-    	pass
+    def set_trigger(self, trigger):
+
+        default_enable_status = 1
+        default_channel = Channel["CH_A"].value
+        default_threshold = 1024 # ADC counts
+        default_direction = ps.PS2000A_THRESHOLD_DIRECTION['PS2000A_RISING']
+        default_delay = 0 # in s
+        default_auto_trigger = 1000 # in ms
+
+        trigger_args = []
+
+        if 'enable_status' in trigger:
+            trigger_args.append(trigger['enable_status'])
+        else:
+            trigger_args.append(default_enable_status)
+            print(f'No enable status provided, using default: {default_enable_status}.')
+
+        if 'source' in trigger:
+            trigger_args.append(trigger['source'])
+        else:
+            trigger_args.append(default_channel)
+            print(f'No source provided, using default: {default_channel}.')
+
+        if 'threshold' in trigger:
+            trigger_args.append(trigger['threshold'])
+        else:
+            trigger_args.append(default_threshold)
+            print(f'No threshold provided, using default: {default_threshold}.')
+
+        if 'direction' in trigger:
+            trigger_args.append(trigger['direction'])
+        else:
+            trigger_args.append(default_direction)
+            print(f'No direction provided, using default: {default_direction}.')
+
+        if 'delay' in trigger:
+            trigger_args.append(trigger['delay'])
+        else:
+            trigger_args.append(default_delay)
+            print(f'No delay provided, using default: {default_delay}.')
+
+        if 'auto_trigger' in trigger:
+            trigger_args.append(trigger['auto_trigger'])
+        else:
+            trigger_args.append(default_auto_trigger)
+            print(f'No auto trigger time provided, using default: {default_auto_trigger}.')
+
+        self.status['trigger'] = ps.ps2000aSetSimpleTrigger(self.chandle, *trigger_args)
+
+        self.timebase = 8
+        self.timeIntervalns = ctypes.c_float()
+        returnedMaxSamples = ctypes.c_int32()
+        self.oversample = ctypes.c_int16(0)
+        self.status['get_timebase'] = ps.ps2000aGetTimebase2(self.chandle,
+                                                             self.timebase,
+                                                             self.total_buff_size,
+                                                             ctypes.byref(self.timeIntervalns),
+                                                             self.oversample,
+                                                             ctypes.byref(returnedMaxSamples),
+                                                             0,
+                                                            )
+        assert_pico_ok(self.status['get_timebase'])
+
+        return self.status
+
     def initialize_streaming(self):
         # Begin streaming mode:
         sampleInterval = ctypes.c_int32(250)
@@ -247,7 +334,8 @@ class Oscilloscope():
         # Create time data
         self.time_data = np.linspace(0, (self.total_buff_size-1) * actualSampleIntervalNs, self.total_buff_size)
 
-    def collect_data(self):
+    def collect_data_streaming(self):
+        self.initialize_streaming()
         # Fetch data from the driver in a loop, copying it out of the registered buffers and into our complete one.
         while self.nextSample < self.total_buff_size and not self.autoStopOuter:
             self.wasCalledBack = False
@@ -258,9 +346,6 @@ class Oscilloscope():
                 time.sleep(0.01)
 
         print("Done grabbing values.")
-        self.nextSample = 0
-        self.autoStopOuter = False
-        self.wasCalledBack = False
 
         # Find maximum ADC count value
         # handle = chandle
@@ -273,18 +358,55 @@ class Oscilloscope():
         for channel_info,channel_data,complete_buffer in zip(self.channels_info,self.channel_datas,self.complete_buffers):
             assert channel_info["name"] == channel_data["name"]
             channel_data["data"] = adc2mV(complete_buffer, channel_info["range"], maxADC)
-        # print(self.channel_datas)
-        # adc2mVChAMax = adc2mV(bufferCompleteA, channel_range, maxADC)
-        # adc2mVChBMax = adc2mV(bufferCompleteB, channel_range, maxADC)
+
+        return self.time_data, self.channel_datas
+
+    def collect_data_block(self):#, buffers):
+        self.status['run_block'] = ps.ps2000aRunBlock(self.chandle,
+                                                      self.pretrigger_size,
+                                                      self.posttrigger_size,
+                                                      self.timebase,
+                                                      self.oversample,
+                                                      None, 0, None, None)
+        assert_pico_ok(self.status['run_block'])
+
+        ready = ctypes.c_int16(0)
+        check = ctypes.c_int16(0)
+        while ready.value == check.value:
+            self.status['is_ready'] = ps.ps2000aIsReady(self.chandle, ctypes.byref(ready))
+
+        # self.set_data_buffers(buffers)
+
+        self.overflow = ctypes.c_int16()
+        self.c_total_samples = ctypes.c_int32(self.total_buff_size)
+
+        self.status['get_values'] = ps.ps2000aGetValues(self.chandle, 0,
+                                                        ctypes.byref(self.c_total_samples),
+                                                        0, 0, 0,
+                                                        ctypes.byref(self.overflow))
+        assert_pico_ok(self.status['get_values'])
+
+        maxADC = ctypes.c_int16()
+        self.status['maximumValue'] = ps.ps2000aMaximumValue(self.chandle, ctypes.byref(maxADC))
+        assert_pico_ok(self.status['maximumValue'])
+
+        # Convert ADC counts data to mV
+        for channel_info,channel_data,buffer_max in zip(self.channels_info,self.channel_datas,self.buffer_maxes):
+            assert channel_info["name"] == channel_data["name"]
+            channel_data["data"] = adc2mV(buffer_max, channel_info["range"], maxADC)
+
+        self.time_data = np.linspace(0,((self.c_total_samples.value)-1)*self.timeIntervalns.value, self.c_total_samples.value)
+
         return self.time_data, self.channel_datas
 
     def get_time_data(self):
         return self.time_data
 
-    def initialize_device(self, channels, buffers):
+    def initialize_device(self, channels, buffers, trigger={}):
         self.status['all_channels_set'] = self.set_channels(channels)
         self.status['all_data_buffers_set'] = self.set_data_buffers(buffers)
-        self.initialize_streaming()
+        if self.mode == 'block':
+            self.set_trigger(trigger=trigger)
         return self.status
 
     def plot_data(self):
@@ -336,7 +458,7 @@ if __name__ == "__main__":
     # coupling type = PS2000A_DC = 1
     # range = PS2000A_2V = 7
     # analogue offset = 0 V
-    channel_range = ps.PS2000A_RANGE['PS2000A_2V']
+    channel_range = ps.PS2000A_RANGE['PS2000A_10V']
     status["setChA"] = ps.ps2000aSetChannel(chandle,
                                             ps.PS2000A_CHANNEL['PS2000A_CHANNEL_A'],
                                             enabled,
@@ -361,8 +483,8 @@ if __name__ == "__main__":
     assert_pico_ok(status["setChB"])
 
     # Size of capture
-    sizeOfOneBuffer = 500
-    numBuffersToCapture = 10
+    sizeOfOneBuffer = 100
+    numBuffersToCapture = 1
 
     totalSamples = sizeOfOneBuffer * numBuffersToCapture
 

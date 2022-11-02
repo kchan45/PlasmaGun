@@ -22,6 +22,7 @@ from utils.oscilloscope import Oscilloscope
 
 TEST = False
 DEFAULT_EMAIL = "kchan45@berkeley.edu"
+save_backup = True
 
 collect_spec = True
 collect_osc = False
@@ -116,7 +117,14 @@ if collect_osc:
     bufferC = {"name": "C"}
     bufferD = {"name": "D"}
     buffers = [bufferA, bufferB, bufferC, bufferD]
-    status = osc.initialize_device(channels, buffers)
+    # see /test/oscilloscope_test.py for more information on defining the trigger (TODO)
+    trigger = {"enable_status": 1,
+               "source": ps.PS2000A_CHANNEL['PS2000A_CHANNEL_A'],
+               "threshold": 1024,
+               "direction": ps.PS2000A_THRESHOLD_DIRECTION['PS2000A_RISING'],
+               "delay": 0,
+               "auto_trigger": 1000}
+    status = osc.initialize_device(channels, buffers, trigger=trigger)
 
 ################################################################################
 # PERFORM DATA COLLECTION
@@ -147,10 +155,10 @@ for i in range(int(n_iterations)):
             for ch in channels:
                 osc_list.append(np.random.randn(240))
         else:
-            t, osc_data = osc.collect_data()
+            t, osc_data = osc.collect_data_block()
 
 
-    if i%10 == 0:
+    if save_backup and (i%10 == 0):
         if collect_spec:
             spec_save = np.vstack(spec_list)
             df = pd.DataFrame(spec_save)
