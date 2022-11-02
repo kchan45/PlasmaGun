@@ -34,7 +34,7 @@ class Oscilloscope():
     The class Oscilloscope defines a custom object that is used to connect to a
     2000a series oscilloscope from PicoTech for the plasma gun setup.
     """
-    def __init__(self, mode='streaming', single_buff_size=100, n_buffs=1, pretrigger_size=2000, posttrigger_size=8000):
+    def __init__(self, mode='block', single_buff_size=100, n_buffs=1, pretrigger_size=2000, posttrigger_size=8000):
         # self.super().__init__()
 
         # initialize the oscilloscope object by:

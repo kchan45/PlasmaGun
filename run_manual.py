@@ -25,7 +25,7 @@ DEFAULT_EMAIL = "kchan45@berkeley.edu"
 save_backup = True
 
 collect_spec = True
-collect_osc = False
+collect_osc = True
 samplingTime = 1.0 # sampling time in seconds
 n_iterations = 10 # number of sampling iterations
 set_v = 5.0 # voltage in Volts
@@ -80,7 +80,7 @@ if collect_spec:
 if collect_osc:
     osc = Oscilloscope()
     status = osc.open_device()
-    # see /test/oscilloscope_test.py for more information on defining the channels
+    # see oscilloscope_test.py for more information on defining the channels
     channelA = {"name": "A",
                 "enable_status": 0,
                 "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
@@ -107,8 +107,8 @@ if collect_osc:
                 "analog_offset": 0.0,
                 }
 
-    channels = [channelA, channelB, channelC]
-    # see /test/oscilloscope_test.py for more information on defining the buffers
+    channels = [channelA]#, channelB, channelC]
+    # see oscilloscope_test.py for more information on defining the buffers
     bufferA = {"name": "A",
                "segment_index": 0,
                "ratio_mode": ps.PS2000A_RATIO_MODE['PS2000A_RATIO_MODE_NONE'],
@@ -116,7 +116,7 @@ if collect_osc:
     bufferB = {"name": "B"}
     bufferC = {"name": "C"}
     bufferD = {"name": "D"}
-    buffers = [bufferA, bufferB, bufferC, bufferD]
+    buffers = [bufferA]#, bufferB, bufferC]
     # see /test/oscilloscope_test.py for more information on defining the trigger (TODO)
     trigger = {"enable_status": 1,
                "source": ps.PS2000A_CHANNEL['PS2000A_CHANNEL_A'],
@@ -124,7 +124,7 @@ if collect_osc:
                "direction": ps.PS2000A_THRESHOLD_DIRECTION['PS2000A_RISING'],
                "delay": 0,
                "auto_trigger": 1000}
-    status = osc.initialize_device(channels, buffers, trigger=trigger)
+    status = osc.initialize_device(channels, buffers)
 
 ################################################################################
 # PERFORM DATA COLLECTION
@@ -142,13 +142,6 @@ if collect_osc:
 
 for i in range(int(n_iterations)):
     startTime = time.time()
-    if collect_spec:
-        if TEST:
-            spec_list.append(np.random.randn(300))
-            spec_list.append(np.random.randn(300))
-        else:
-            spec_list.append(spec.wavelengths())
-            spec_list.append(spec.intensities())
     if collect_osc:
         if TEST:
             osc_list.append(np.random.randn(240))
@@ -156,6 +149,16 @@ for i in range(int(n_iterations)):
                 osc_list.append(np.random.randn(240))
         else:
             t, osc_data = osc.collect_data_block()
+            osc_list.append(t)
+            for ch in channels:
+                osc_list.append(osc_data[ch["name"]])
+    if collect_spec:
+        if TEST:
+            spec_list.append(np.random.randn(300))
+            spec_list.append(np.random.randn(300))
+        else:
+            spec_list.append(spec.wavelengths())
+            spec_list.append(spec.intensities())
 
 
     if save_backup and (i%10 == 0):
