@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import pyvisa as visa
 import usbtmc
-from utils.uvcRadiometry import*
+from utils.uvc.uvcRadiometry import*
 # new imports since 2021/03/17:
 import asyncio
 import crcmod
@@ -153,4 +153,3 @@ def get_avg_spatial_temp(n_pix, data, loc):
 def closeThermalCamera(dev, ctx):
 	libuvc.uvc_unref_device(dev)
 	libuvc.uvc_exit(ctx)
-

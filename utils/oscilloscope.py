@@ -2,7 +2,7 @@
 Oscilloscope utilities for the plasma gun setup. The main testing script uses
 exactly the ps2000a streaming example.
 
-Inspired by the ps2000a streaming example at
+Inspired by the ps2000a streaming and block read examples at
 https://github.com/picotech/picosdk-python-wrappers
 
 
@@ -34,7 +34,7 @@ class Oscilloscope():
     The class Oscilloscope defines a custom object that is used to connect to a
     2000a series oscilloscope from PicoTech for the plasma gun setup.
     """
-    def __init__(self, mode='block', single_buff_size=100, n_buffs=1, pretrigger_size=2000, posttrigger_size=8000):
+    def __init__(self, mode='block', single_buff_size=500, n_buffs=10, pretrigger_size=2000, posttrigger_size=8000):
         # self.super().__init__()
 
         # initialize the oscilloscope object by:
@@ -44,23 +44,34 @@ class Oscilloscope():
         self.chandle = ctypes.c_int16()
         self.status = {}
         self.mode = mode
-        self.set_capture_size(mode, single_buff_size, n_buffs, pretrigger_size, posttrigger_size)
+        self.set_capture_size(single_buff_size, n_buffs, pretrigger_size, posttrigger_size)
         self.channels_info = None
         self.buffers_info = None
         self.channel_datas = None
         self.time_data = None
 
     def open_device(self):
+        '''
+        short wrapper function to open the device
+        Inputs:
+        N/A
+        Outputs:
+        returns the output of the assert_pick_ok function (0 or no output
+            corresponds to PICO_OK status)
+        '''
         self.status['openunit'] = ps.ps2000aOpenUnit(ctypes.byref(self.chandle), None)
         return assert_pico_ok(self.status['openunit'])
 
-    def set_capture_size(self, mode, single_buff_size, n_buffs, pretrigger_size, posttrigger_size):
-
-        if mode == 'streaming':
+    def set_capture_size(self, single_buff_size, n_buffs, pretrigger_size, posttrigger_size):
+        '''
+        short helper function to set the capture size of the data buffers when
+        collecting data.
+        '''
+        if self.mode == 'streaming':
             total_buff_size = single_buff_size * n_buffs
             self.single_buff_size = single_buff_size
             self.n_buffs = n_buffs
-        elif mode == 'block':
+        elif self.mode == 'block':
             total_buff_size = pretrigger_size + posttrigger_size
             self.pretrigger_size = pretrigger_size
             self.posttrigger_size = posttrigger_size
@@ -69,7 +80,15 @@ class Oscilloscope():
         return
 
     def set_channels(self, channels):
+        '''
+        function to set the channels for data collection of the oscilloscope.
+        Inputs:
+        channels        a list of dictionaries that each correspond to a
+                        dictionary of channel information/settings
 
+        Outputs:
+        status          the current status dictionary of the Oscilloscope instance
+        '''
         # set defaults in case not provided
         default_enable_status = 1
         default_coupling_type = ps.PS2000A_COUPLING['PS2000A_DC']
@@ -134,7 +153,15 @@ class Oscilloscope():
         return self.status
 
     def set_data_buffers(self, buffers):
+        '''
+        function to set the data buffers for data collection of the oscilloscope.
+        Inputs:
+        buffers         a list of dictionaries that each correspond to a
+                        dictionary of buffer information/settings
 
+        Outputs:
+        status          the current status dictionary of the Oscilloscope instance
+        '''
         if self.channels_info is None:
             print('Channels not set!')
             raise
@@ -217,13 +244,21 @@ class Oscilloscope():
             return self.status
 
     def set_trigger(self, trigger):
+        '''
+        function to set the trigger for data collection of the oscilloscope
+        (for use in "block" mode)
+        Inputs:
+        trigger        a dictionary of trigger information/settings
 
+        Outputs:
+        status          the current status dictionary of the Oscilloscope instance
+        '''
         default_enable_status = 1
         default_channel = Channel["CH_A"].value
         default_threshold = 1024 # ADC counts
         default_direction = ps.PS2000A_THRESHOLD_DIRECTION['PS2000A_RISING']
         default_delay = 0 # in s
-        default_auto_trigger = 1000 # in ms
+        default_auto_trigger = 500 # in ms
 
         trigger_args = []
 
@@ -282,6 +317,10 @@ class Oscilloscope():
         return self.status
 
     def initialize_streaming(self):
+        '''
+        function to start the streaming process; should be called each time you
+        want to stream values from the oscilloscope
+        '''
         # Begin streaming mode:
         sampleInterval = ctypes.c_int32(250)
         sampleUnits = ps.PS2000A_TIME_UNITS['PS2000A_US']
@@ -335,6 +374,17 @@ class Oscilloscope():
         self.time_data = np.linspace(0, (self.total_buff_size-1) * actualSampleIntervalNs, self.total_buff_size)
 
     def collect_data_streaming(self):
+        '''
+        function to collect data acquired through streaming
+        Inputs:
+        N/A
+        Outputs: a tuple of time and channel data
+        time_data       the time vector corresponding to the data collection
+        channel_data    a list of dictionaries containing the data acquired from
+                        a particular channel; each dictionary will contain the
+                        name of the channel where data was acquired and the data
+                        itself
+        '''
         self.initialize_streaming()
         # Fetch data from the driver in a loop, copying it out of the registered buffers and into our complete one.
         while self.nextSample < self.total_buff_size and not self.autoStopOuter:
@@ -361,7 +411,19 @@ class Oscilloscope():
 
         return self.time_data, self.channel_datas
 
-    def collect_data_block(self):#, buffers):
+    def collect_data_block(self):
+        '''
+        function to collect data acquired through block collection
+        Inputs:
+        N/A
+        Outputs: a tuple of time and channel data
+        time_data       the time vector corresponding to the data collection
+        channel_data    a list of dictionaries containing the data acquired from
+                        a particular channel; each dictionary will contain the
+                        name of the channel where data was acquired and the data
+                        itself
+        '''
+
         self.status['run_block'] = ps.ps2000aRunBlock(self.chandle,
                                                       self.pretrigger_size,
                                                       self.posttrigger_size,
@@ -374,8 +436,6 @@ class Oscilloscope():
         check = ctypes.c_int16(0)
         while ready.value == check.value:
             self.status['is_ready'] = ps.ps2000aIsReady(self.chandle, ctypes.byref(ready))
-
-        # self.set_data_buffers(buffers)
 
         self.overflow = ctypes.c_int16()
         self.c_total_samples = ctypes.c_int32(self.total_buff_size)
@@ -400,9 +460,18 @@ class Oscilloscope():
         return self.time_data, self.channel_datas
 
     def get_time_data(self):
+        '''
+        short function to retrieve the time vector of the data
+        '''
         return self.time_data
 
     def initialize_device(self, channels, buffers, trigger={}):
+        '''
+        all-in-one function wrapper to initialize the device by setting the
+        channels at which to acquire data from, the buffers corresponding to
+        those channels, and the trigger to start data collection if using
+        "block" mode
+        '''
         self.status['all_channels_set'] = self.set_channels(channels)
         self.status['all_data_buffers_set'] = self.set_data_buffers(buffers)
         if self.mode == 'block':
@@ -410,15 +479,23 @@ class Oscilloscope():
         return self.status
 
     def plot_data(self):
+        '''
+        short, simple function to plot the data acquired from the oscilloscope
+        '''
         fig, ax = plt.subplots()
         for channel_data in channel_datas:
             ax.plot(self.time_data, channel_data["data"][:], label=channel_data["name"])
         ax.set_xlabel('Time (ns)')
         ax.set_ylabel('Voltage (mV)')
         # plt.show()
-        return fig,ax
+        return fig, ax
 
     def stop_and_close_device(self):
+        '''
+        wrapper function to stop and close the device
+        prints and returns the status dictionary of the particular Oscilloscope
+        instance
+        '''
         # handle = chandle
         self.status["stop"] = ps.ps2000aStop(self.chandle)
         assert_pico_ok(self.status["stop"])
@@ -433,7 +510,8 @@ class Oscilloscope():
         return self.status
 
 if __name__ == "__main__":
-    # for troubleshooting, run the example script
+    # for troubleshooting streaming mode, run the example script derived from
+    # the picosdk-wrapper Github
 
     # Create chandle and status:
     # chandle keeps track of the connected device
