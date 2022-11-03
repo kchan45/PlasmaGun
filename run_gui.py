@@ -1,4 +1,4 @@
-# script to run gui 
+# script to run gui
 
 
 import sys
