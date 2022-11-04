@@ -1,4 +1,10 @@
+"""
+Main script for running data aquisition with manually-given inputs
 
+Written/Modified By: Kimberly Chan
+(c) 2022 GREMI, University of Orleans
+(c) 2022 Mesbah Lab, University of California, Berkeley
+"""
 
 import sys
 sys.dont_write_bytecode = True
@@ -47,8 +53,8 @@ integration_time = 200000       # in microseconds
 ## OPTIONAL Configurations for the oscilloscope - in case the settings for the oscilloscope need to be customized
 mode = 'block'  # use block mode to capture the data using a trigger; the other option is 'streaming'
 # for block mode, you may wish to change the following:
-pretrigger_size = 2000      # size of the data buffer before the trigger, default is 2000
-posttrigger_size = 8000     # size of the data buffer after the trigger, default is 8000
+pretrigger_size = 2000      # size of the data buffer before the trigger, default is 2000, in units of samples
+posttrigger_size = 8000     # size of the data buffer after the trigger, default is 8000, in units of samples
 # for streaming mode, you may wish to change the following:
 single_buffer_size = 500    # size of a single buffer, default is 500
 n_buffers = 10              # number of buffers to acquire, default is 10
