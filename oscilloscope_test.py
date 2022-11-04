@@ -104,15 +104,24 @@ bufferD = {"name": "D"}
 
 buffers = [bufferA]#, bufferC]
 # buffers = [bufferA, bufferB, bufferC, bufferD]
-# status = osc.set_data_buffers(buffers)
-# print(status)
 
-# initialize streaming (to allow for continuous data collection)
-# self.intialize_streaming()
+# a trigger is defined to capture the specific pulse characteristics of the plasma
+trigger = {"enable_status": 1,
+           "source": ps.PS2000A_CHANNEL['PS2000A_CHANNEL_A'],
+           "threshold": 1024, # in ADC counts
+           "direction": ps.PS2000A_THRESHOLD_DIRECTION['PS2000A_RISING'],
+           "delay": 0, # in seconds
+           "auto_trigger": 200} # in milliseconds
+
+
+timebase = 8
 
 ## ALTERNATIVE: Oscilloscope.initialize_oscilloscope(channels, buffers)
-# initialize_oscilloscope sets the channels, buffers and initializes the streaming
-status = osc.initialize_device(channels, buffers)
+# initialize_oscilloscope sets the channels, buffers and trigger (optional)
+if TEST_STREAMING:
+    status = osc.initialize_device(channels, buffers)
+else:
+    status = osc.initialize_device(channels, buffers, trigger=trigger, timebase=timebase)
 
 plt.ion()
 tStart = time.time()

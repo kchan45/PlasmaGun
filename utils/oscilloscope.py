@@ -300,21 +300,47 @@ class Oscilloscope():
 
         self.status['trigger'] = ps.ps2000aSetSimpleTrigger(self.chandle, *trigger_args)
 
-        self.timebase = 8
-        self.timeIntervalns = ctypes.c_float()
-        returnedMaxSamples = ctypes.c_int32()
-        self.oversample = ctypes.c_int16(0)
-        self.status['get_timebase'] = ps.ps2000aGetTimebase2(self.chandle,
-                                                             self.timebase,
-                                                             self.total_buff_size,
-                                                             ctypes.byref(self.timeIntervalns),
-                                                             self.oversample,
-                                                             ctypes.byref(returnedMaxSamples),
-                                                             0,
-                                                            )
-        assert_pico_ok(self.status['get_timebase'])
+        # self.timebase = 8
+        # self.timeIntervalns = ctypes.c_float()
+        # returnedMaxSamples = ctypes.c_int32()
+        # self.oversample = ctypes.c_int16(0)
+        # self.status['get_timebase'] = ps.ps2000aGetTimebase2(self.chandle,
+        #                                                      self.timebase,
+        #                                                      self.total_buff_size,
+        #                                                      ctypes.byref(self.timeIntervalns),
+        #                                                      self.oversample,
+        #                                                      ctypes.byref(returnedMaxSamples),
+        #                                                      0,
+        #                                                     )
+        # print(self.timeIntervalns)
+        # assert_pico_ok(self.status['get_timebase'])
 
         return self.status
+
+    def set_timebase(self, timebase):
+
+        correct_timebase = False
+        while not correct_timebase:
+            self.timebase = timebase
+            self.timeIntervalns = ctypes.c_float()
+            returnedMaxSamples = ctypes.c_int32()
+            self.oversample = ctypes.c_int16(0)
+            self.status['get_timebase'] = ps.ps2000aGetTimebase2(self.chandle,
+                                                                 self.timebase,
+                                                                 self.total_buff_size,
+                                                                 ctypes.byref(self.timeIntervalns),
+                                                                 self.oversample,
+                                                                 ctypes.byref(returnedMaxSamples),
+                                                                 0,
+                                                                )
+            print("Time Interval (ns): ", self.timeIntervalns)
+            assert_pico_ok(self.status['get_timebase'])
+            good_time_interval = input("Is the time interval above good? [Y/n]\n")
+            correct_timebase = True if good_time_interval in ["Y", "y"] else False
+            if not correct_timebase:
+                self.timebase = int(input("Press Enter/Return to increment the current timebase\nOR\nEnter a new timebase: \n") or self.timebase+1)
+
+        print(f"Timebase set! The time interval between samples will be {self.timeIntervalns} ns.")
 
     def initialize_streaming(self):
         '''
@@ -465,7 +491,7 @@ class Oscilloscope():
         '''
         return self.time_data
 
-    def initialize_device(self, channels, buffers, trigger={}):
+    def initialize_device(self, channels, buffers, trigger={}, timebase=8):
         '''
         all-in-one function wrapper to initialize the device by setting the
         channels at which to acquire data from, the buffers corresponding to
@@ -475,7 +501,8 @@ class Oscilloscope():
         self.status['all_channels_set'] = self.set_channels(channels)
         self.status['all_data_buffers_set'] = self.set_data_buffers(buffers)
         if self.mode == 'block':
-            self.set_trigger(trigger=trigger)
+            self.set_trigger(trigger)
+            self.set_timebase(timebase)
         return self.status
 
     def plot_data(self):

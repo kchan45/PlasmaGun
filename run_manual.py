@@ -14,14 +14,9 @@ import time
 import os
 from datetime import datetime
 import asyncio
-# # pickle import to save class data
-# try:
-#     import cPickle as pickle
-# except ModuleNotFoundError:
-#     import pickle
-# import argparse
 import pandas as pd
 from picosdk.ps2000a import ps2000a as ps
+import matplotlib.pyplot as plt
 
 ## import user functions
 from utils.oscilloscope import Oscilloscope
@@ -44,8 +39,9 @@ DEFAULT_EMAIL = "kchan45@berkeley.edu"          # the default email address to s
 set_v = 5.0             # voltage in Volts
 set_freq = 200.0        # frequency in hertz
 set_flow = 1.0          # flow rate in liters per minute
-addl_notes = "chicken muscle at 5mm distance; location 4; more lights off"
-# addl_notes = "background"
+addl_notes = "test"
+
+plot_last_data = True       # whether [True] or not [False] to plot the data from the final iteration of the data collection
 
 ## OPTIONAL Configurations for the spectrometer - in case the settings for the spectrometer need to be customized
 integration_time = 200000       # in microseconds
@@ -192,7 +188,7 @@ if async_collection:
     tasks, runTime = ioloop.run_until_complete(async_measure(spec, osc))
     print(f"Asynchronous measurement initialized with measurement time: {runTime} sec")
 
-input("The devices and measurement protocol have been initialized! Press Enter/Return to continue with measurements, otherwise, use Ctrl+C to exit the program.")
+input("\n\nThe devices and measurement protocol have been initialized! Press Enter/Return to continue with measurements, otherwise, use Ctrl+C to exit the program.\n")
 ################################################################################
 # PERFORM DATA COLLECTION
 ################################################################################
@@ -269,22 +265,43 @@ for i in range(int(n_iterations)):
 
 if collect_spec:
     spec_save = np.vstack(spec_list)
-    df = pd.DataFrame(spec_save)
+    df_spec = pd.DataFrame(spec_save)
     # print(df)
-    df.to_csv(f1)
-    df.to_hdf(saveDir+"data.h5", key="spec", complevel=8)
+    df_spec.to_csv(f1)
+    df_spec.to_hdf(saveDir+"data.h5", key="spec", complevel=8)
     f1.close()
 
 if collect_osc:
     osc_save = np.vstack(osc_list)
-    df = pd.DataFrame(osc_save)
+    df_osc = pd.DataFrame(osc_save)
     # print(df)
-    df.to_csv(f2)
-    df.to_hdf(saveDir+"data.h5", key="osc", complevel=8)
+    df_osc.to_csv(f2)
+    df_osc.to_hdf(saveDir+"data.h5", key="osc", complevel=8)
     f2.close()
 
 if collect_osc and not TEST:
     status = osc.stop_and_close_device()
+
+if plot_last_data:
+    print(f"Plotting data from last sampling iteration...")
+    fig, (ax1, ax2) = plt.subplots(2,1, figsize=(10,6))
+
+    n_intensities = df_spec.iloc[-1]
+    n_wavelengths = df_spec.iloc[-2]
+    ax1.plot(n_wavelengths, n_intensities, lw=2)
+    ax1.set_title("Intensity Spectra from final sampling iteration.")
+    ax1.set_xlabel("Wavelength (nm)")
+    ax1.set_ylabel("Intensity (arb. units)")
+
+    n_channels = len(channels)
+    n_time = df_osc.iloc[-(n_channels+1)]
+    ch_names = ["Ch A", "Ch B", "Ch C", "Ch D"]
+    for i in range(n_channels):
+        ax2.plot(n_time, df_osc.iloc[i-n_channels], lw=2, label=ch_names[i])
+    ax2.set_title("Oscilloscope readings from final sampling iteration")
+    ax2.set_xlabel("Time (ns)")
+    ax2.set_ylabel("Voltage Signal (mV)")
+
 
 
 print("\n\nCompleted data collection!\n")
