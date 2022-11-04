@@ -300,28 +300,30 @@ class Oscilloscope():
 
         self.status['trigger'] = ps.ps2000aSetSimpleTrigger(self.chandle, *trigger_args)
 
-        # self.timebase = 8
-        # self.timeIntervalns = ctypes.c_float()
-        # returnedMaxSamples = ctypes.c_int32()
-        # self.oversample = ctypes.c_int16(0)
-        # self.status['get_timebase'] = ps.ps2000aGetTimebase2(self.chandle,
-        #                                                      self.timebase,
-        #                                                      self.total_buff_size,
-        #                                                      ctypes.byref(self.timeIntervalns),
-        #                                                      self.oversample,
-        #                                                      ctypes.byref(returnedMaxSamples),
-        #                                                      0,
-        #                                                     )
-        # print(self.timeIntervalns)
-        # assert_pico_ok(self.status['get_timebase'])
-
         return self.status
 
     def set_timebase(self, timebase):
+        self.timebase = timebase
+        self.timeIntervalns = ctypes.c_float()
+        returnedMaxSamples = ctypes.c_int32()
+        self.oversample = ctypes.c_int16(0)
+        self.status['get_timebase'] = ps.ps2000aGetTimebase2(self.chandle,
+                                                             self.timebase,
+                                                             self.total_buff_size,
+                                                             ctypes.byref(self.timeIntervalns),
+                                                             self.oversample,
+                                                             ctypes.byref(returnedMaxSamples),
+                                                             0,
+                                                            )
+        print("Time Interval (ns): ", self.timeIntervalns.value)
+        assert_pico_ok(self.status['get_timebase'])
+        return self.status
+
+    def set_timebase_iterative(self, timebase):
 
         correct_timebase = False
+        self.timebase = timebase
         while not correct_timebase:
-            self.timebase = timebase
             self.timeIntervalns = ctypes.c_float()
             returnedMaxSamples = ctypes.c_int32()
             self.oversample = ctypes.c_int16(0)
@@ -333,7 +335,7 @@ class Oscilloscope():
                                                                  ctypes.byref(returnedMaxSamples),
                                                                  0,
                                                                 )
-            print("Time Interval (ns): ", self.timeIntervalns)
+            print("Time Interval (ns): ", self.timeIntervalns.value)
             assert_pico_ok(self.status['get_timebase'])
             good_time_interval = input("Is the time interval above good? [Y/n]\n")
             correct_timebase = True if good_time_interval in ["Y", "y"] else False

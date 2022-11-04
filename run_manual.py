@@ -31,7 +31,7 @@ save_backup = True          # whether [True] or not [False] to save a compressed
 async_collection = True     # whether [True] or not [False] to collect data asynchronously, if this is True, then collect_osc and collect_spec will be automatically set to True regardless of the settings in the following two lines
 collect_spec = True         # whether [True] or not [False] to collect data from the spectrometer
 collect_osc = True          # whether [True] or not [False] to collect data from the oscilloscope
-samplingTime = 1.0          # sampling time in seconds
+samplingTime = 0.5          # sampling time in seconds
 n_iterations = 10           # number of sampling iterations
 
 # variables that will NOT change the function of the data collection (for note-taking purposes)
@@ -49,11 +49,12 @@ integration_time = 200000       # in microseconds
 ## OPTIONAL Configurations for the oscilloscope - in case the settings for the oscilloscope need to be customized
 mode = 'block'  # use block mode to capture the data using a trigger; the other option is 'streaming'
 # for block mode, you may wish to change the following:
-pretrigger_size = 2000      # size of the data buffer before the trigger, default is 2000, in units of samples
-posttrigger_size = 8000     # size of the data buffer after the trigger, default is 8000, in units of samples
+pretrigger_size = 200      # size of the data buffer before the trigger, default is 2000, in units of samples
+posttrigger_size = 800     # size of the data buffer after the trigger, default is 8000, in units of samples
 # for streaming mode, you may wish to change the following:
 single_buffer_size = 500    # size of a single buffer, default is 500
 n_buffers = 10              # number of buffers to acquire, default is 10
+timebase = 2              # timebase for the measurement resolution, 127 corresponds to 1us, default is 8
 
 # see oscilloscope_test.py for more information on defining the channels
 channelA = {"name": "A",
@@ -173,7 +174,7 @@ if collect_osc:
         # if you wish to test the connection to the device, please use the oscilloscope_test.py
         osc = Oscilloscope()
         status = osc.open_device()
-        status = osc.initialize_device(channels, buffers, trigger=trigger)
+        status = osc.initialize_device(channels, buffers, trigger=trigger, timebase=timebase)
     else:
         osc = None
 
@@ -222,22 +223,26 @@ for i in range(int(n_iterations)):
     # append the data to save containers
     if collect_osc:
         if TEST:
-            osc_list.append(np.random.randn(240))
+            if i == 0:
+                osc_list.append(np.random.randn(240))
             for ch in channels:
                 osc_list.append(np.random.randn(240))
         else:
             s2 = time.perf_counter()
-            osc_list.append(t)
+            if i == 0:
+                osc_list.append(t)
             for ch,ch_data in zip(channels,osc_data):
                 assert ch["name"] == ch_data["name"]
                 osc_list.append(ch_data["data"])
             # print("time to save data:", time.perf_counter() - s2)
     if collect_spec:
         if TEST:
-            spec_list.append(np.random.randn(300))
+            if i == 0:
+                spec_list.append(np.random.randn(300))
             spec_list.append(np.random.randn(300))
         else:
-            spec_list.append(wavelengths)
+            if i == 0:
+                spec_list.append(wavelengths)
             spec_list.append(intensities)
 
     # save backup files of data
@@ -262,7 +267,9 @@ for i in range(int(n_iterations)):
     elif runTime > samplingTime:
         print('WARNING: Measurement time was greater than sampling time! Data may be inaccurate.')
 
-
+################################################################################
+# FINAL SAVE OF DATA
+################################################################################
 if collect_spec:
     spec_save = np.vstack(spec_list)
     df_spec = pd.DataFrame(spec_save)
@@ -282,26 +289,40 @@ if collect_osc:
 if collect_osc and not TEST:
     status = osc.stop_and_close_device()
 
+################################################################################
+# PLOT LAST COLLECTED SAMPLE
+################################################################################
 if plot_last_data:
-    print(f"Plotting data from last sampling iteration...")
+    print(f"\n\nPlotting data from last sampling iteration...")
     fig, (ax1, ax2) = plt.subplots(2,1, figsize=(10,6))
 
     n_intensities = df_spec.iloc[-1]
-    n_wavelengths = df_spec.iloc[-2]
+    n_wavelengths = df_spec.iloc[0]
     ax1.plot(n_wavelengths, n_intensities, lw=2)
     ax1.set_title("Intensity Spectra from final sampling iteration.")
     ax1.set_xlabel("Wavelength (nm)")
     ax1.set_ylabel("Intensity (arb. units)")
 
     n_channels = len(channels)
-    n_time = df_osc.iloc[-(n_channels+1)]
+    n_time = df_osc.iloc[0] # time
     ch_names = ["Ch A", "Ch B", "Ch C", "Ch D"]
+    colors = ["tab:blue", "tab:red", "tab:green", "tab:yellow"]
     for i in range(n_channels):
-        ax2.plot(n_time, df_osc.iloc[i-n_channels], lw=2, label=ch_names[i])
+        ch_data = df_osc.iloc[i-n_channels]
+        if np.any(ch_data > 1e3):
+            ax3 = ax2.twinx()
+            ax3.plot(n_time, ch_data/1e3, lw=2, label=ch_names[i], color=colors[i])
+            ax3.set_ylabel("Voltage Signal (V)")
+            ax3.legend(loc="upper right")
+        else:
+            ax2.plot(n_time, ch_data, lw=2, label=ch_names[i], color=colors[i])
     ax2.set_title("Oscilloscope readings from final sampling iteration")
     ax2.set_xlabel("Time (ns)")
     ax2.set_ylabel("Voltage Signal (mV)")
+    ax2.legend(loc="upper left")
 
+    plt.tight_layout()
+    plt.show()
 
 
 print("\n\nCompleted data collection!\n")
@@ -351,3 +372,5 @@ if send_data_to_email in ["Y", "y"]:
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
         server.login(sender_email, password)
         server.sendmail(sender_email, receiver_email, message.as_string())
+print("\n--------------------------------------------------------------------------------------------")
+input("\n\nProgram finished! Press Enter/Return to exit.\n")

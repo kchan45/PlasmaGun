@@ -10,6 +10,7 @@ import sys
 import argparse
 import time
 from picosdk.ps2000a import ps2000a as ps
+import numpy as np
 import matplotlib.pyplot as plt
 
 from utils.oscilloscope import Oscilloscope
@@ -25,15 +26,19 @@ if len(sys.argv)!=numArg:
 
 loopTime = int(sys.argv[1])
 
-# Create an instance of the oscilloscope
-if TEST_STREAMING:
-    osc = Oscilloscope(mode='streaming')
-else:
-    osc = Oscilloscope(mode='block')
 
-# Open the oscilloscope
-status = osc.open_device()
-print(status)
+################################################################################
+# USER OPTIONS (you may change these)
+################################################################################
+
+mode = 'block'  # use block mode to capture the data using a trigger; the other option is 'streaming'
+# for block mode, you may wish to change the following:
+pretrigger_size = 2000      # size of the data buffer before the trigger, default is 2000, in units of samples
+posttrigger_size = 8000     # size of the data buffer after the trigger, default is 8000, in units of samples
+# for streaming mode, you may wish to change the following:
+single_buffer_size = 500    # size of a single buffer, default is 500
+n_buffers = 10              # number of buffers to acquire, default is 10
+timebase = 2 # 2 corresponds to 4 ns; 127 # 127 corresponds to 1 us
 
 # set the channels to read from oscilloscope
 # up to four channels may be set: A, B, C, D
@@ -77,7 +82,7 @@ channelD = {"name": "D",
             "analog_offset": 0.0,
             }
 
-channels = [channelA]#, channelC]
+channels = [channelA, channelB, channelC]
 # channels = [channelA, channelB, channelC, channelD]
 # status = osc.set_channels(channels)
 # print(status)
@@ -102,7 +107,7 @@ bufferB = {"name": "B"}
 bufferC = {"name": "C"}
 bufferD = {"name": "D"}
 
-buffers = [bufferA]#, bufferC]
+buffers = [bufferA, bufferB, bufferC]
 # buffers = [bufferA, bufferB, bufferC, bufferD]
 
 # a trigger is defined to capture the specific pulse characteristics of the plasma
@@ -114,18 +119,32 @@ trigger = {"enable_status": 1,
            "auto_trigger": 200} # in milliseconds
 
 
-timebase = 8
+################################################################################
+# RUN TEST LOOP
+# Recommended: Do NOT edit beyond this section
+################################################################################
 
-## ALTERNATIVE: Oscilloscope.initialize_oscilloscope(channels, buffers)
+# Create an instance of the oscilloscope
+if TEST_STREAMING:
+    osc = Oscilloscope(mode='streaming')
+else:
+    osc = Oscilloscope(mode='block')
+
+# Open the oscilloscope
+status = osc.open_device()
+print(status)
+
 # initialize_oscilloscope sets the channels, buffers and trigger (optional)
 if TEST_STREAMING:
     status = osc.initialize_device(channels, buffers)
 else:
     status = osc.initialize_device(channels, buffers, trigger=trigger, timebase=timebase)
 
+fig, ax2 = plt.subplots(1,1, figsize=(10,6), layout='tight')
+
 plt.ion()
 tStart = time.time()
-
+twin_ax = False
 while(time.time()-tStart<=loopTime):
     s = time.time()
     if TEST_STREAMING:
@@ -133,17 +152,34 @@ while(time.time()-tStart<=loopTime):
     else:
         t, ch_datas = osc.collect_data_block()
     print(f"time to collect data: {time.time()-s}")
-    t = osc.get_time_data()
-    for ch_data in ch_datas:
-        data = ch_data["data"]
-        plt.plot(t, data[:], label=ch_data["name"])
+    n_channels = len(channels)
+    ch_names = ["Ch A", "Ch B", "Ch C", "Ch D"]
+    colors = ["tab:blue", "tab:red", "tab:green", "tab:yellow"]
+    lines = []
+    for i in range(n_channels):
+        ch_data = np.asarray(ch_datas[i]["data"])
+        if np.any(ch_data > 1e3):
+            if not twin_ax:
+                ax3 = ax2.twinx()
+                twin_ax = True
+            l = ax3.plot(t, ch_data/1e3, lw=2, label=ch_names[i], color=colors[i])
+            lines.append(*l)
+        else:
+            l = ax2.plot(t, ch_data, lw=2, label=ch_names[i], color=colors[i])
+            lines.append(*l)
+    ax2.set_title("Oscilloscope readings from final sampling iteration")
+    ax2.set_xlabel("Time (ns)")
+    ax2.set_ylabel("Voltage Signal (mV)")
+    if twin_ax:
+        ax3.set_ylabel("Voltage Signal (V)")
+    labels = [l.get_label() for l in lines]
+    ax2.legend(lines, labels, loc="best")
 
-    plt.xlabel('Time (ns)')
-    plt.ylabel('Voltage (mV)')
-    plt.legend()
     plt.draw()
     plt.pause(1)
-    plt.clf()
+    ax2.clear()
+    if twin_ax:
+        ax3.clear()
 
 
 # stop and close the unit after finished
