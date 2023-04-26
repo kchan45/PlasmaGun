@@ -32,14 +32,18 @@ async_collection = True     # whether [True] or not [False] to collect data asyn
 collect_spec = True         # whether [True] or not [False] to collect data from the spectrometer
 collect_osc = True          # whether [True] or not [False] to collect data from the oscilloscope
 samplingTime = 0.5          # sampling time in seconds
-n_iterations = 10           # number of sampling iterations
+# n_iterations = input("Number of iterations?:") # number of sampling iterations
+n_iterations = 101
+
 
 # variables that will NOT change the function of the data collection (for note-taking purposes)
 DEFAULT_EMAIL = "kchan45@berkeley.edu"          # the default email address to send the data to
-set_v = 5.0             # voltage in Volts
+set_v = 85.0             # voltage in Volts
 set_freq = 200.0        # frequency in hertz
-set_flow = 1.0          # flow rate in liters per minute
-addl_notes = "test"
+set_flow = 0.5          # flow rate in liters per minute
+set_gap = 5.0           # distance reactor to target in mm
+set_target = input("Target?:")
+addl_notes = "chicken I"
 
 plot_last_data = True       # whether [True] or not [False] to plot the data from the final iteration of the data collection
 
@@ -60,23 +64,23 @@ timebase = 2              # timebase for the measurement resolution, 127 corresp
 channelA = {"name": "A",
             "enable_status": 1,
             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
-            "range": ps.PS2000A_RANGE['PS2000A_5V'],
+            "range": ps.PS2000A_RANGE['PS2000A_10V'],
             "analog_offset": 0.0,
             }
 channelB = {"name": "B",
             "enable_status": 1,
             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
-            "range": ps.PS2000A_RANGE['PS2000A_20MV'],
+            "range": ps.PS2000A_RANGE['PS2000A_20V'],
             "analog_offset": 0.0,
             }
 channelC = {"name": "C",
             "enable_status": 1,
             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
-            "range": ps.PS2000A_RANGE['PS2000A_20MV'],
+            "range": ps.PS2000A_RANGE['PS2000A_20V'],
             "analog_offset": 0.0,
             }
 channelD = {"name": "D",
-            "enable_status": 1,
+            "enable_status": 0,
             "coupling_type": ps.PS2000A_COUPLING['PS2000A_DC'],
             "range": ps.PS2000A_RANGE['PS2000A_5V'],
             "analog_offset": 0.0,
@@ -120,7 +124,7 @@ print('Timestamp for save files: ', timeStamp)
 
 # set save location
 directory = os.getcwd()
-saveDir = directory+"/data/"+timeStamp+"/"
+saveDir = directory+"/data/"+timeStamp+"_"+addl_notes+"_"+set_target+"/"
 if not os.path.exists(saveDir):
 	os.makedirs(saveDir, exist_ok=True)
 print('\nData will be saved in the following directory:')
@@ -128,7 +132,7 @@ print(saveDir)
 
 # notes to write to files
 line1 = f"# Data Timestamp: {timeStamp}\n"
-line2 = f"# Input Parameters: Voltage = {set_v} Volts; Frequency = {set_freq} Hertz; Carrier gas flow rate = {set_flow} liters/minute.\n"
+line2 = f"# Input Parameters: Target = {set_target}; Voltage = {set_v} Volts; Frequency = {set_freq} Hertz; Gap = {set_gap} mm; Carrier gas flow rate = {set_flow}; liters/minute.\n"
 line3 = f"# {addl_notes}\n"
 lines = [line1, line2, line3]
 # create a TXT file to save just the notes. The name of the text file is notes.txt
@@ -201,7 +205,10 @@ osc_list = []
 for i in range(int(n_iterations)):
     print(f"\nCollecting data from iteration {i} of {n_iterations}...")
     startTime = time.perf_counter()
-
+    if i==0:
+        background:input("Collect background now! Plasma must be off. Press Enter when ready")
+    if i==1:
+        background:input("Turn on plasma to continue acquisitions. Press Enter when ready")
     # collect the data
     if async_collection:
         tasks, _ = ioloop.run_until_complete(async_measure(spec, osc))
