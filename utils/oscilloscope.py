@@ -7,8 +7,8 @@ https://github.com/picotech/picosdk-python-wrappers
 
 
 Written/Modified By: Kimberly Chan
-(c) 2022 GREMI, University of Orleans
-(c) 2022 Mesbah Lab, University of California, Berkeley
+(c) 2023 GREMI, University of Orleans
+(c) 2023 Mesbah Lab, University of California, Berkeley
 """
 # PS2000 Series (A API) STREAMING MODE EXAMPLE
 # This example demonstrates how to call the ps2000a driver API functions in
@@ -56,7 +56,7 @@ class Oscilloscope():
         Inputs:
         N/A
         Outputs:
-        returns the output of the assert_pick_ok function (0 or no output
+        returns the output of the assert_pico_ok function (0 or no output
             corresponds to PICO_OK status)
         '''
         self.status['openunit'] = ps.ps2000aOpenUnit(ctypes.byref(self.chandle), None)
@@ -78,6 +78,60 @@ class Oscilloscope():
 
         self.total_buff_size = total_buff_size
         return
+
+    def set_signal(self, signal_options):
+        '''
+        function to create a signal from the AWG (arbritrary waveform generator)
+        channel of the oscilloscope. this function is intended to provide a
+        limited set of instructions to create a waveform using the Picoscope;
+        more options can be changed with modifications to this function.
+        Inputs:
+        signal_options      a dictionary of signal generation options, this
+                            dictionary should contain a subset of options
+                            available to modify for the oscilloscope
+        Outputs:
+        status              the current status dictionary of the Oscilloscope instance
+        '''
+        # set defaults
+        default_offsetVoltage = 0 # DC offset
+        default_pk2pk = 2000000 # peak-to-peak voltage (in microvolts)
+        default_freq = 400 # frequency in Hz
+        default_waveform = ctypes.c_int16(1) # (0) sine wave, (1) square wave, etc. see pico manual
+
+        sig_gen_args = []
+        # add the offset voltage, if not provided, use the default (defaults defined above in code)
+        if 'offsetVoltage' in signal_options:
+            sig_gen_args.append(signal_options['offsetVoltage'])
+        else:
+            sig_gen_args.append(default_offsetVoltage)
+
+        if 'pk2pk' in signal_options:
+            sig_gen_args.append(signal_options['pk2pk'])
+        else:
+            sig_gen_args.append(default_pk2pk)
+
+        if 'waveform' in signal_options:
+            sig_gen_args.append(signal_options['waveform'])
+        else:
+            sig_gen_args.append(default_waveform)
+
+        if 'freq' in signal_options:
+            # frequency is appended twice for start and stop frequency; we set as the same since we do not want to send a mix of frequency signals
+            sig_gen_args.append(signal_options['freq'])
+            sig_gen_args.append(signal_options['freq'])
+        else:
+            sig_gen_args.append(default_freq)
+            sig_gen_args.append(default_freq)
+
+        # additional arguments that will not change for our purposes. the order is as follows:
+        # increment, dwellTime, sweepType, operation, shots, sweeps, triggertype, triggerSource, extInThreshold
+        addl_args = [0, 1, ctypes.c_int32(0), 0, 0, 0, ctypes.c_int32(0), ctypes.c_int32(0), 1]
+        signal_args = [*sig_gen_args, *addl_args]
+
+        self.status['sig_gen'] = ps.ps2000aSetSigGenBuiltIn(self.chandle, *signal_args)
+        assert_pico_ok(self.status['sig_gen'])
+
+        return self.status
 
     def set_channels(self, channels):
         '''
@@ -141,7 +195,7 @@ class Oscilloscope():
             else:
                 ch_args.append(default_analog_offset)
                 print(f'No offset provided, using default: {default_analog_offset}.')
-            print(ch_args)
+            # print(ch_args)
 
             # set the channel connection
             self.status[f'set_ch{ch_name}'] = ps.ps2000aSetChannel(self.chandle, *ch_args)
@@ -234,7 +288,7 @@ class Oscilloscope():
                 else:
                     buff_args.append(default_ratio_mode)
                     print(f'No ratio mode provided, using default: {default_ratio_mode}.')
-                print(buff_args)
+                # print(buff_args)
 
                 self.status[f'setBuffer{ch_name}'] = ps.ps2000aSetDataBuffers(self.chandle, *buff_args)
                 assert_pico_ok(self.status[f'setBuffer{ch_name}'])
@@ -634,6 +688,49 @@ if __name__ == "__main__":
                                                          memory_segment,
                                                          ps.PS2000A_RATIO_MODE['PS2000A_RATIO_MODE_NONE'])
     assert_pico_ok(status["setDataBuffersB"])
+
+    # set up signal generator
+    offsetVoltage = 0 # DC offset
+    pk2pk = 2000000 # peak-to-peak voltage (in microvolts)
+    freq = 100 # frequency in Hz
+    waveform = ctypes.c_int16(8) # (0) sine wave, (1) square wave, etc. see pico manual
+    # waveType, the type of waveform to be generated:
+    # PS2000A_SINE          sine wave
+    # PS2000A_SQUARE        square wave
+    # PS2000A_TRIANGLE      triangle wave
+    # PS2000A_DC_VOLTAGE    DC voltage
+    # PS2000A_RAMP_UP       rising sawtooth
+    # PS2000A_RAMP_DOWN     falling sawtooth
+    # PS2000A_SINC          sin(x)/x
+    # PS2000A_GAUSSIAN      Gaussian
+    # PS2000A_HALF_SINE     half (full-wave rectified) sine
+    startFreq = freq
+    stopFreq = freq
+    increment = 0
+    dwellTime = 1
+    sweepType = ctypes.c_int32(0) # (0) PS200A_UP, (1) PS200A_DOWN, etc. see pico manual
+    operation = 0 # type of waveformed to be produced, (0) PS200A_ES_OFF (normal signal generator operation specified by waveType)
+    shots = 0 # (0) sweep the frequency as specified by sweeps, etc.
+    sweeps = 0 # (0) produce number of cycles specfied by shots, etc.
+    triggertype = ctypes.c_int32(0) # (0) PS2000A_SIGGEN_RISING
+    triggerSource = ctypes.c_int32(0) # (0) PS2000A_SIGGEN_NONE
+    extInThreshold = 1
+    status["genSignal"] = ps.ps2000aSetSigGenBuiltIn(chandle,
+                            offsetVoltage,
+                            pk2pk,
+                            waveform,
+                            startFreq,
+                            stopFreq,
+                            increment,
+                            dwellTime,
+                            sweepType,
+                            operation,
+                            shots,
+                            sweeps,
+                            triggertype,
+                            triggerSource,
+                            extInThreshold,
+                            )
 
     # Begin streaming mode:
     sampleInterval = ctypes.c_int32(250)
