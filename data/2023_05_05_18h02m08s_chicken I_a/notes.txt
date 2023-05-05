@@ -1,0 +1,3 @@
+# Data Timestamp: 2023_05_05_18h02m08s
+# Input Parameters: Target = a; Voltage = 85.0 Volts; Frequency = 1000.0 Hertz; Gap = 5.0 mm; Carrier gas flow rate = 0.5; liters/minute.
+# chicken I

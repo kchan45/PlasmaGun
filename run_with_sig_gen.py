@@ -29,8 +29,8 @@ TEST = False          # for testing the code without any devices connected; the 
 ################################################################################
 # variables that WILL change the function of the data collection
 save_backup = True          # whether [True] or not [False] to save a compressed H5 backup file every 10 iterations
-async_collection = False     # whether [True] or not [False] to collect data asynchronously, if this is True, then collect_osc and collect_spec will be automatically set to True regardless of the settings in the following two lines
-collect_spec = False         # whether [True] or not [False] to collect data from the spectrometer
+async_collection = True     # whether [True] or not [False] to collect data asynchronously, if this is True, then collect_osc and collect_spec will be automatically set to True regardless of the settings in the following two lines
+collect_spec = True         # whether [True] or not [False] to collect data from the spectrometer
 collect_osc = True          # whether [True] or not [False] to collect data from the oscilloscope
 samplingTime = 0.5          # sampling time in seconds
 # n_iterations = input("Number of iterations?:") # number of sampling iterations
@@ -40,7 +40,7 @@ n_iterations = 11
 # variables that will NOT change the function of the data collection (for note-taking purposes)
 DEFAULT_EMAIL = "kchan45@berkeley.edu"          # the default email address to send the data to
 set_v = 85.0             # voltage in Volts
-set_freq = 200.0        # frequency in hertz
+set_freq = 1000.0        # frequency in hertz
 set_flow = 0.5          # flow rate in liters per minute
 set_gap = 5.0           # distance reactor to target in mm
 set_target = input("Target?:")
@@ -110,7 +110,7 @@ trigger = {"enable_status": 1,
            "delay": 0, # in seconds
            "auto_trigger": 200} # in milliseconds
 
-signal = {"offsetVoltage": 0, # voltage offset, in microvolts
+signal = {"offsetVoltage": 1000000, # voltage offset, in microvolts
           "pk2pk": 2000000, # peak-to-peak voltage of waveform signal (in microvolts)
           "freq": set_freq, # frequency of the wavform signal (in Hertz)
           "waveform": ctypes.c_int16(1), # type of waveform generated
