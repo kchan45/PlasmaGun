@@ -186,8 +186,8 @@ class Oscilloscope():
             if 'range' in channel:
                 ch_args.append(channel['range'])
             else:
-                ch_args.append(default_range)
-                print(f'No range provided, using default: {default_range}.')
+                ch_args.append(default_channel_range)
+                print(f'No range provided, using default: {default_channel_range}.')
 
             # add the analog offset, if not provided, use the default (defaults defined above in code)
             if 'analog_offset' in channel:
@@ -238,7 +238,7 @@ class Oscilloscope():
                     ch_name = f'CH_{buff["name"]}'
                     buff_args.append(Channel[ch_name].value)
                     ch_name = buff['name']
-                elif len(channel['name']) == 4:
+                elif len(buff['name']) == 4:
                     buff_args.append(Channel[buff['name']].value)
                     ch_name = buff['name'][-1]
                 else:
@@ -566,7 +566,7 @@ class Oscilloscope():
         short, simple function to plot the data acquired from the oscilloscope
         '''
         fig, ax = plt.subplots()
-        for channel_data in channel_datas:
+        for channel_data in self.channel_datas:
             ax.plot(self.time_data, channel_data["data"][:], label=channel_data["name"])
         ax.set_xlabel('Time (ns)')
         ax.set_ylabel('Voltage (mV)')
